@@ -1,26 +1,136 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
+  /* Background Colors */
+  --background: #f7f8f6;
+  --background-dark: #1c2012;
   --foreground: #171717;
+  --foreground-dark: #ededed;
+
+  /* Brand Colors - Primary Lime Green */
+  --brand-primary: #95c11f;
+  --brand-primary-dark: #7aa619;
+  --brand-primary-light: #b5d963;
+  --brand-primary-pale: #e8f5d0;
+
+  /* Secondary & Accent Colors */
+  --brand-secondary: #7e3af2; /* Purple - 매출, 리포트, 프리미엄 */
+  --brand-accent: #3b82f6;    /* Blue - 정보, 진행 중 */
+  --brand-success: #10b981;   /* Green - 성공, 완료 */
+  --brand-warning: #f59e0b;   /* Amber - 경고, 주의 */
+  --brand-danger: #ef4444;    /* Red - 실패, 삭제 */
+
+  /* Card & Border Colors */
+  --card-border: #e2e5dc;
+  --card-border-dark: #374151;
+}
+
+.dark {
+  --background: #1c2012;
+  --foreground: #ededed;
+  --card-border: #374151;
 }
 
 @theme inline {
+  /* Colors */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  --color-background-light: #f7f8f6;
+  --color-background-dark: #1c2012;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  /* Brand Colors */
+  --color-primary: #95c11f;
+  --color-primary-dark: #7aa619;
+  --color-primary-light: #b5d963;
+  --color-primary-pale: #e8f5d0;
+
+  --color-secondary: #7e3af2;
+  --color-accent: #3b82f6;
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-danger: #ef4444;
+
+  /* Border & Card */
+  --color-card-border: #e2e5dc;
+  --color-card-border-dark: #374151;
+
+  /* Typography */
+  --font-sans: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+  --font-display: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, 'Courier New', monospace;
+
+  /* Border Radius */
+  --radius: 0.5rem;
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
+  --radius-2xl: 2rem;
+  --radius-full: 9999px;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Gradient Animation */
+@keyframes gradient {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+.animate-gradient {
+  animation: gradient 3s ease infinite;
+}
+
+/* Dynamic Title Animation */
+@keyframes dynamicTitle {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+    letter-spacing: 0;
+  }
+  25% {
+    transform: translateY(-2px) scale(1.02);
+    letter-spacing: 0.02em;
+  }
+  50% {
+    transform: translateY(0) scale(1);
+    letter-spacing: 0;
+  }
+  75% {
+    transform: translateY(-1px) scale(1.01);
+    letter-spacing: 0.01em;
+  }
+}
+
+.animate-dynamic-title {
+  animation: dynamicTitle 4s ease-in-out infinite;
+}
+
+/* Pulse Glow Animation */
+@keyframes pulseGlow {
+  0%, 100% {
+    filter: drop-shadow(0 0 0px rgba(0, 0, 0, 0));
+  }
+  50% {
+    filter: drop-shadow(0 0 8px rgba(0, 0, 0, 0.15));
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulseGlow 3s ease-in-out infinite;
 }
