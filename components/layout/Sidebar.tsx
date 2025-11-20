@@ -9,27 +9,38 @@ interface NavItem {
   name: string;
   href: string;
   icon: string;
+  permissionKey?: keyof MenuPermissions; // 권한 체크용 키
+}
+
+interface MenuPermissions {
+  dashboard: boolean;
+  pipeline: boolean;
+  sourcing: boolean;
+  report: boolean;
+  meetings: boolean;
+  admin: boolean;
 }
 
 interface UserInfo {
   name: string;
   email: string;
   role: 'admin' | 'shared';
+  permissions?: MenuPermissions;
 }
 
 const navItems: NavItem[] = [
-  { name: 'Dashboard', href: '/dashboard', icon: 'dashboard' },
-  { name: 'Pipeline', href: '/pipeline', icon: 'view_kanban' },
-  { name: 'Sourcing', href: '/pipeline/sourcing', icon: 'inventory_2' },
-  { name: 'Reports', href: '/report', icon: 'assessment' },
-  { name: 'Meetings', href: '/meetings', icon: 'event_note' },
-  { name: 'Documents', href: '/pipeline/documents', icon: 'folder_open' },
-  { name: 'New Registration', href: '/pipeline/add', icon: 'add_circle' },
-  { name: 'Excel Upload', href: '/pipeline/upload', icon: 'upload_file' },
+  { name: 'Dashboard', href: '/dashboard', icon: 'dashboard', permissionKey: 'dashboard' },
+  { name: 'Pipeline', href: '/pipeline', icon: 'view_kanban', permissionKey: 'pipeline' },
+  { name: 'Sourcing', href: '/pipeline/sourcing', icon: 'inventory_2', permissionKey: 'sourcing' },
+  { name: 'Reports', href: '/report', icon: 'assessment', permissionKey: 'report' },
+  { name: 'Meetings', href: '/meetings', icon: 'event_note', permissionKey: 'meetings' },
+  { name: 'Documents', href: '/pipeline/documents', icon: 'folder_open', permissionKey: 'pipeline' }, // Pipeline 권한 사용
+  { name: 'New Registration', href: '/pipeline/add', icon: 'add_circle', permissionKey: 'pipeline' }, // Pipeline 권한 사용
+  { name: 'Excel Upload', href: '/pipeline/upload', icon: 'upload_file', permissionKey: 'pipeline' }, // Pipeline 권한 사용
 ];
 
 const adminNavItems: NavItem[] = [
-  { name: 'Admin Settings', href: '/admin/settings', icon: 'settings' },
+  { name: 'Admin Settings', href: '/admin/settings', icon: 'settings', permissionKey: 'admin' },
 ];
 
 export default function Sidebar() {
@@ -51,6 +62,7 @@ export default function Sidebar() {
             name: data.accessorName || data.email.split('@')[0],
             email: data.email,
             role: data.role,
+            permissions: data.permissions, // 권한 정보 추가
           });
         }
       } catch (error) {
@@ -60,6 +72,31 @@ export default function Sidebar() {
 
     fetchSession();
   }, []);
+
+  // 권한 확인 함수
+  const hasPermission = (permissionKey?: keyof MenuPermissions): boolean => {
+    // Admin은 모든 권한 가짐
+    if (user?.role === 'admin') {
+      return true;
+    }
+
+    // permissionKey가 없으면 접근 허용 (권한 체크 불필요한 메뉴)
+    if (!permissionKey) {
+      return true;
+    }
+
+    // 권한 정보가 없으면 기본 허용 (이전 버전 호환성)
+    if (!user?.permissions) {
+      return true;
+    }
+
+    // 권한 체크
+    return user.permissions[permissionKey] === true;
+  };
+
+  // 권한에 따라 필터링된 메뉴 아이템
+  const filteredNavItems = navItems.filter((item) => hasPermission(item.permissionKey));
+  const filteredAdminItems = adminNavItems.filter((item) => hasPermission(item.permissionKey));
 
   const handleLogout = async () => {
     if (isLoggingOut) return;
@@ -99,7 +136,7 @@ export default function Sidebar() {
       {/* Navigation Menu */}
       <nav className="flex-1 px-4 py-6 overflow-y-auto">
         <ul className="flex flex-col gap-2">
-          {navItems.map((item) => {
+          {filteredNavItems.map((item) => {
             const isActive = pathname === item.href;
 
             return (
@@ -123,13 +160,13 @@ export default function Sidebar() {
             );
           })}
 
-          {/* Admin Only Menu */}
-          {user?.role === 'admin' && (
+          {/* Admin/Permission-based Menu */}
+          {filteredAdminItems.length > 0 && (
             <>
               <li className="my-2">
                 <div className="border-t border-gray-200 dark:border-gray-700"></div>
               </li>
-              {adminNavItems.map((item) => {
+              {filteredAdminItems.map((item) => {
                 const isActive = pathname === item.href;
 
                 return (

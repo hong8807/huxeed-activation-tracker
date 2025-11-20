@@ -3,13 +3,41 @@
 import { useState, useEffect } from 'react';
 import bcryptjs from 'bcryptjs';
 
+interface MenuPermissions {
+  dashboard: boolean;
+  pipeline: boolean;
+  sourcing: boolean;
+  report: boolean;
+  meetings: boolean;
+  admin: boolean;
+}
+
 interface EmailSubscriber {
   id: string;
   email: string;
   name: string | null;
   is_active: boolean;
   subscribed_at: string;
+  permissions: MenuPermissions;
 }
+
+const DEFAULT_PERMISSIONS: MenuPermissions = {
+  dashboard: true,
+  pipeline: true,
+  sourcing: true,
+  report: true,
+  meetings: true,
+  admin: false,
+};
+
+const MENU_LABELS = {
+  dashboard: 'Dashboard',
+  pipeline: 'Pipeline',
+  sourcing: 'Sourcing',
+  report: 'Report',
+  meetings: 'Meetings',
+  admin: 'Admin Settings',
+};
 
 export default function AdminSettingsPage() {
   const [activeTab, setActiveTab] = useState<'password' | 'subscribers'>('password');
@@ -168,8 +196,69 @@ export default function AdminSettingsPage() {
     }
   };
 
+  // 권한 업데이트
+  const handlePermissionChange = async (
+    subscriberId: string,
+    menu: keyof MenuPermissions,
+    value: boolean
+  ) => {
+    try {
+      const subscriber = subscribers.find((s) => s.id === subscriberId);
+      if (!subscriber) return;
+
+      const updatedPermissions = {
+        ...subscriber.permissions,
+        [menu]: value,
+      };
+
+      const response = await fetch(`/api/admin/email-subscribers/${subscriberId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          permissions: updatedPermissions,
+        }),
+      });
+
+      if (response.ok) {
+        // UI 즉시 업데이트
+        setSubscribers((prev) =>
+          prev.map((s) =>
+            s.id === subscriberId ? { ...s, permissions: updatedPermissions } : s
+          )
+        );
+      } else {
+        alert('권한 업데이트 실패');
+      }
+    } catch (error) {
+      console.error('Update permission error:', error);
+      alert('권한 업데이트에 실패했습니다');
+    }
+  };
+
+  // 활성화/비활성화 토글
+  const handleToggleActive = async (subscriberId: string, currentStatus: boolean) => {
+    try {
+      const response = await fetch(`/api/admin/email-subscribers/${subscriberId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          is_active: !currentStatus,
+        }),
+      });
+
+      if (response.ok) {
+        fetchSubscribers();
+      } else {
+        alert('상태 변경 실패');
+      }
+    } catch (error) {
+      console.error('Toggle active error:', error);
+      alert('상태 변경에 실패했습니다');
+    }
+  };
+
   return (
-    <div className="p-6 max-w-4xl mx-auto">
+    <div className="p-6 max-w-6xl mx-auto">
       <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-8">
         관리자 설정
       </h1>
@@ -195,7 +284,7 @@ export default function AdminSettingsPage() {
                 : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
             }`}
           >
-            메일 수신자 관리
+            메일 수신자 및 권한 관리
           </button>
         </nav>
       </div>
@@ -265,27 +354,27 @@ export default function AdminSettingsPage() {
             {/* 안내 문구 */}
             <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
               <p className="text-xs text-blue-600 dark:text-blue-400">
-                💡 비밀번호 변경 후 메일 발송 기능은 향후 구현 예정입니다
+                💡 비밀번호 변경 시 모든 메일 수신자에게 자동으로 알림이 발송됩니다
               </p>
             </div>
           </div>
         </div>
       )}
 
-      {/* 메일 수신자 관리 탭 */}
+      {/* 메일 수신자 및 권한 관리 탭 */}
       {activeTab === 'subscribers' && (
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
           <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
-            메일 수신자 관리
+            메일 수신자 및 메뉴 접근 권한 관리
           </h2>
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
-            비밀번호 변경 알림을 받을 이메일 주소를 관리합니다
+            비밀번호 변경 알림을 받을 사용자와 각 사용자의 메뉴 접근 권한을 관리합니다
           </p>
 
           {/* 수신자 추가 폼 */}
           <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
-              새 수신자 추가
+              새 사용자 추가
             </h3>
             <div className="flex gap-2">
               <input
@@ -299,8 +388,8 @@ export default function AdminSettingsPage() {
                 type="text"
                 value={newSubscriberName}
                 onChange={(e) => setNewSubscriberName(e.target.value)}
-                placeholder="이름 (선택)"
-                className="w-32 px-3 py-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white"
+                placeholder="이름 (로그인 시 입력할 이름)"
+                className="w-48 px-3 py-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white"
               />
               <button
                 onClick={handleAddSubscriber}
@@ -320,47 +409,103 @@ export default function AdminSettingsPage() {
           ) : subscribers.length === 0 ? (
             <div className="text-center py-8">
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                등록된 수신자가 없습니다
+                등록된 사용자가 없습니다
               </p>
             </div>
           ) : (
-            <div className="space-y-2">
-              {subscribers.map((subscriber) => (
-                <div
-                  key={subscriber.id}
-                  className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900 rounded-lg"
-                >
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">
-                      {subscriber.email}
-                    </p>
-                    {subscriber.name && (
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {subscriber.name}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={`text-xs px-2 py-1 rounded ${
-                        subscriber.is_active
-                          ? 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400'
-                          : 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
-                      }`}
-                    >
-                      {subscriber.is_active ? '활성' : '비활성'}
-                    </span>
-                    <button
-                      onClick={() => handleDeleteSubscriber(subscriber.id)}
-                      className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
-                    >
-                      <span className="material-symbols-outlined text-sm">delete</span>
-                    </button>
-                  </div>
-                </div>
-              ))}
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-100 dark:bg-gray-900">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300">
+                      이메일
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300">
+                      이름
+                    </th>
+                    <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 dark:text-gray-300">
+                      상태
+                    </th>
+                    {Object.entries(MENU_LABELS).map(([key, label]) => (
+                      <th
+                        key={key}
+                        className="px-4 py-3 text-center text-xs font-semibold text-gray-700 dark:text-gray-300"
+                      >
+                        {label}
+                      </th>
+                    ))}
+                    <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 dark:text-gray-300">
+                      삭제
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                  {subscribers.map((subscriber) => {
+                    const permissions = subscriber.permissions || DEFAULT_PERMISSIONS;
+                    return (
+                      <tr
+                        key={subscriber.id}
+                        className="hover:bg-gray-50 dark:hover:bg-gray-900/50"
+                      >
+                        <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
+                          {subscriber.email}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
+                          {subscriber.name || '-'}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <button
+                            onClick={() =>
+                              handleToggleActive(subscriber.id, subscriber.is_active)
+                            }
+                            className={`text-xs px-2 py-1 rounded ${
+                              subscriber.is_active
+                                ? 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400 hover:bg-green-200'
+                                : 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-400 hover:bg-gray-300'
+                            }`}
+                          >
+                            {subscriber.is_active ? '활성' : '비활성'}
+                          </button>
+                        </td>
+                        {Object.keys(MENU_LABELS).map((menu) => (
+                          <td key={menu} className="px-4 py-3 text-center">
+                            <input
+                              type="checkbox"
+                              checked={permissions[menu as keyof MenuPermissions]}
+                              onChange={(e) =>
+                                handlePermissionChange(
+                                  subscriber.id,
+                                  menu as keyof MenuPermissions,
+                                  e.target.checked
+                                )
+                              }
+                              className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary cursor-pointer"
+                            />
+                          </td>
+                        ))}
+                        <td className="px-4 py-3 text-center">
+                          <button
+                            onClick={() => handleDeleteSubscriber(subscriber.id)}
+                            className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                          >
+                            <span className="material-symbols-outlined text-sm">delete</span>
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           )}
+
+          {/* 안내 문구 */}
+          <div className="mt-6 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+            <p className="text-xs text-blue-600 dark:text-blue-400">
+              💡 <strong>이름</strong>: 로그인 후 입력할 이름입니다. 이 이름으로 로그인하면 체크된 메뉴만 접근 가능합니다.<br/>
+              💡 <strong>상태</strong>: 비활성화하면 메일을 받지 않으며 로그인도 불가능합니다.
+            </p>
+          </div>
         </div>
       )}
     </div>

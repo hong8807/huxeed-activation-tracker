@@ -44,6 +44,39 @@ export async function POST(request: NextRequest) {
 
     const supabase = await createClient()
 
+    // 이름으로 email_subscribers 조회하여 권한 확인
+    const { data: subscriber, error: subscriberError } = await supabase
+      .from('email_subscribers')
+      .select('id, email, name, is_active, permissions')
+      .eq('name', name.trim())
+      .single()
+
+    if (subscriberError || !subscriber) {
+      return NextResponse.json(
+        { error: '등록되지 않은 사용자입니다. 관리자에게 문의하세요.' },
+        { status: 403 }
+      )
+    }
+
+    if (!subscriber.is_active) {
+      return NextResponse.json(
+        { error: '비활성화된 사용자입니다. 관리자에게 문의하세요.' },
+        { status: 403 }
+      )
+    }
+
+    // 기본 권한 (권한 정보가 없는 경우)
+    const defaultPermissions = {
+      dashboard: true,
+      pipeline: true,
+      sourcing: true,
+      report: true,
+      meetings: true,
+      admin: false,
+    }
+
+    const permissions = subscriber.permissions || defaultPermissions
+
     // Create access log entry
     const { error: logError } = await supabase
       .from('access_logs')
@@ -63,10 +96,11 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Update session cookie with accessor name
+    // Update session cookie with accessor name and permissions
     const updatedSession = {
       ...session,
       accessorName: name.trim(),
+      permissions,
     }
 
     cookieStore.set('session', JSON.stringify(updatedSession), {
