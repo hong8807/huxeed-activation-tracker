@@ -1097,20 +1097,26 @@ export default function MeetingsPage() {
             left: 0;
             top: 0;
             width: 100%;
-            padding: 15mm;
+            padding: 10mm;
           }
           .list-item {
-            page-break-inside: avoid;
-            break-inside: avoid;
-            margin-bottom: 4mm;
+            /* page-break-inside: avoid 제거 - 항목이 여러 페이지에 걸쳐도 출력되도록 */
+            margin-bottom: 3mm;
+            orphans: 2;  /* 페이지 하단에 최소 2줄 남기기 */
+            widows: 2;   /* 페이지 상단에 최소 2줄 남기기 */
           }
           .print-header {
-            margin-bottom: 8mm;
-            padding-bottom: 5mm;
+            margin-bottom: 6mm;
+            padding-bottom: 4mm;
+            page-break-after: avoid;  /* 헤더 다음에 페이지 분할 방지 */
           }
           @page {
             size: A4;
-            margin: 15mm;
+            margin: 12mm;  /* 여백 축소하여 더 많은 내용 포함 */
+          }
+          /* 페이지 분할 최적화 */
+          .space-y-3 {
+            display: block;
           }
         }
       `}</style>
