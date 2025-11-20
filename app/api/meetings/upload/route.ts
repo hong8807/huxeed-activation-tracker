@@ -10,6 +10,7 @@ interface ParsedRow {
   meeting_date: string;
   account_name: string | null;
   content: string;
+  is_record: boolean;
 }
 
 interface ErrorRow {
@@ -61,6 +62,10 @@ export async function POST(request: NextRequest) {
       const meetingDate = row.getCell(2).value;
       const accountName = row.getCell(3).value?.toString().trim() || null;
       const content = row.getCell(4).value?.toString().trim() || '';
+      const isRecordValue = row.getCell(5).value?.toString().trim() || '';
+
+      // 기록 여부 파싱: "기록", "O", "o", "TRUE", "true" 등을 true로 인식
+      const isRecord = ['기록', 'O', 'o', 'TRUE', 'true', 'Y', 'y', '1'].includes(isRecordValue);
 
       // 검증: 회의제목
       if (!ALLOWED_MEETING_TYPES.includes(meetingType as any)) {
@@ -111,7 +116,8 @@ export async function POST(request: NextRequest) {
         meeting_type: meetingType,
         meeting_date: parsedDate,
         account_name: accountName,
-        content: content
+        content: content,
+        is_record: isRecord
       });
     });
 
@@ -128,6 +134,7 @@ export async function POST(request: NextRequest) {
             meeting_date: row.meeting_date,
             account_name: row.account_name,
             content: row.content,
+            is_record: row.is_record,
             assignee_name: null,
             reply_text: null,
             is_done: false
