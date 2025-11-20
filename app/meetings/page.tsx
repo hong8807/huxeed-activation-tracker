@@ -1080,43 +1080,81 @@ export default function MeetingsPage() {
       {/* 프린트 스타일 */}
       <style jsx global>{`
         @media print {
-          body * {
-            visibility: hidden;
+          /* 모달과 불필요한 요소 숨기기 */
+          body > div:not(.fixed) {
+            display: none !important;
           }
-          #print-content,
-          #print-content * {
-            visibility: visible;
+
+          /* 프린트 모달만 표시 */
+          .fixed {
+            position: static !important;
+            background: white !important;
+            box-shadow: none !important;
+            border-radius: 0 !important;
+            max-width: 100% !important;
+            max-height: none !important;
+            overflow: visible !important;
+            padding: 0 !important;
+            margin: 0 !important;
           }
-          #print-content-all,
-          #print-content-all * {
-            visibility: visible;
+
+          /* 모달 내부 컨테이너 */
+          .fixed > div {
+            box-shadow: none !important;
+            border-radius: 0 !important;
+            max-width: 100% !important;
+            max-height: none !important;
+            overflow: visible !important;
           }
+
+          /* 모달 헤더(버튼 영역) 숨기기 */
+          .fixed .sticky {
+            display: none !important;
+          }
+
+          /* 프린트 영역 */
           #print-content,
           #print-content-all {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
-            padding: 10mm;
+            display: block !important;
+            position: static !important;
+            width: 100% !important;
+            padding: 0 !important;
+            margin: 0 !important;
           }
-          .list-item {
-            /* page-break-inside: avoid 제거 - 항목이 여러 페이지에 걸쳐도 출력되도록 */
-            margin-bottom: 3mm;
-            orphans: 2;  /* 페이지 하단에 최소 2줄 남기기 */
-            widows: 2;   /* 페이지 상단에 최소 2줄 남기기 */
-          }
-          .print-header {
-            margin-bottom: 6mm;
-            padding-bottom: 4mm;
-            page-break-after: avoid;  /* 헤더 다음에 페이지 분할 방지 */
-          }
+
+          /* 페이지 설정 */
           @page {
             size: A4;
-            margin: 12mm;  /* 여백 축소하여 더 많은 내용 포함 */
+            margin: 15mm;
           }
-          /* 페이지 분할 최적화 */
+
+          /* 헤더 */
+          .print-header {
+            margin-bottom: 8mm;
+            padding-bottom: 4mm;
+            page-break-after: avoid;
+            break-after: avoid;
+          }
+
+          /* 리스트 항목 */
+          .list-item {
+            margin-bottom: 3mm;
+            page-break-inside: auto;  /* 자동 페이지 분할 허용 */
+            break-inside: auto;
+            orphans: 2;
+            widows: 2;
+          }
+
+          /* 여백 조정 */
           .space-y-3 {
             display: block;
+          }
+
+          /* 배경색 출력 활성화 */
+          * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            color-adjust: exact !important;
           }
         }
       `}</style>
