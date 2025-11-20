@@ -1080,55 +1080,67 @@ export default function MeetingsPage() {
       {/* 프린트 스타일 */}
       <style jsx global>{`
         @media print {
-          /* 모달과 불필요한 요소 숨기기 */
-          body > div:not(.fixed) {
-            display: none !important;
-          }
-
-          /* 프린트 모달만 표시 */
-          .fixed {
-            position: static !important;
-            background: white !important;
-            box-shadow: none !important;
-            border-radius: 0 !important;
-            max-width: 100% !important;
-            max-height: none !important;
-            overflow: visible !important;
-            padding: 0 !important;
-            margin: 0 !important;
-          }
-
-          /* 모달 내부 컨테이너 */
-          .fixed > div {
-            box-shadow: none !important;
-            border-radius: 0 !important;
-            max-width: 100% !important;
-            max-height: none !important;
-            overflow: visible !important;
-          }
-
-          /* 모달 헤더(버튼 영역) 숨기기 */
-          .fixed .sticky {
-            display: none !important;
-          }
-
-          /* 프린트 영역 */
-          #print-content,
-          #print-content-all {
-            display: block !important;
-            position: static !important;
-            width: 100% !important;
-            padding: 0 !important;
-            margin: 0 !important;
-          }
-
           /* 페이지 설정 */
           @page {
             size: A4;
             margin: 15mm;
           }
 
-          /* 헤더 */
+          /* 페이지 전체 배경 */
+          body {
+            background: white;
+            margin: 0;
+            padding: 0;
+          }
+
+          /* 메인 페이지 내용 숨기기 */
+          body > div:first-child {
+            display: none;
+          }
+
+          /* 프린트 모달만 표시 */
+          body > div.fixed {
+            display: block !important;
+            position: static !important;
+            background: white !important;
+            inset: auto !important;
+            z-index: auto !important;
+            padding: 0 !important;
+            margin: 0 !important;
+          }
+
+          /* 모달 오버레이 배경 제거 */
+          body > div.fixed::before {
+            display: none !important;
+          }
+
+          /* 모달 내부 컨테이너 */
+          body > div.fixed > div {
+            max-width: 100% !important;
+            max-height: none !important;
+            overflow: visible !important;
+            box-shadow: none !important;
+            border-radius: 0 !important;
+            margin: 0 !important;
+          }
+
+          /* 모달 헤더(버튼 영역) 숨기기 */
+          body > div.fixed .sticky {
+            display: none !important;
+          }
+
+          /* 프린트 콘텐츠 영역 */
+          #print-content,
+          #print-content-all {
+            display: block !important;
+            visibility: visible !important;
+            position: static !important;
+            width: 100% !important;
+            padding: 0 !important;
+            margin: 0 !important;
+          }
+
+          /* 프린트 헤더 */
           .print-header {
             margin-bottom: 8mm;
             padding-bottom: 4mm;
@@ -1136,21 +1148,21 @@ export default function MeetingsPage() {
             break-after: avoid;
           }
 
-          /* 리스트 항목 */
+          /* 리스트 항목 - 페이지 분할 허용 */
           .list-item {
             margin-bottom: 3mm;
-            page-break-inside: auto;  /* 자동 페이지 분할 허용 */
+            page-break-inside: auto;
             break-inside: auto;
             orphans: 2;
             widows: 2;
           }
 
-          /* 여백 조정 */
+          /* 여백 스타일 */
           .space-y-3 {
-            display: block;
+            display: block !important;
           }
 
-          /* 배경색 출력 활성화 */
+          /* 배경색 유지 */
           * {
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
