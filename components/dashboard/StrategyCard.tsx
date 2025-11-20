@@ -81,7 +81,7 @@ export default function StrategyCard({
     <div className={`group relative flex flex-col gap-5 rounded-xl p-6 bg-white dark:bg-background-dark border border-card-border dark:border-card-border-dark border-l-4 ${colors.accentColor} shadow-sm hover:shadow-md transition-all duration-200`}>
       {/* 헤더: 아이콘 + 제목 + 부제목 */}
       <div className="flex items-start gap-4">
-        <div className="flex-shrink-0 w-12 h-12 bg-gray-50 dark:bg-gray-800/30 rounded-lg flex items-center justify-center text-gray-600 dark:text-gray-400">
+        <div className="shrink-0 w-12 h-12 bg-gray-50 dark:bg-gray-800/30 rounded-lg flex items-center justify-center text-gray-600 dark:text-gray-400">
           {getIcon()}
         </div>
         <div className="flex-1 min-w-0">

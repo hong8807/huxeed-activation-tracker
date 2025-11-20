@@ -207,7 +207,7 @@ export default function KanbanBoard({ initialTargets, owners }: KanbanBoardProps
         {/* Board */}
         <div className="flex gap-4 pb-4" style={{ minWidth: 'max-content' }}>
           {STAGE_ORDER.map((stage) => (
-            <div key={stage} className="flex-shrink-0 w-80 min-w-80 bg-gray-100 rounded-lg">
+            <div key={stage} className="shrink-0 w-80 min-w-80 bg-gray-100 rounded-lg">
               <div className="px-4 py-3 border-b border-gray-200 bg-white rounded-t-lg">
                 <div className="flex items-center justify-between">
                   <h3 className="font-semibold text-gray-900">{STAGE_LABELS[stage]}</h3>

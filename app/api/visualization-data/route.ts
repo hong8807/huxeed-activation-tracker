@@ -72,6 +72,7 @@ export async function GET() {
       totalSaving: t.total_saving_krw || 0,
       revenue: t.our_est_revenue_krw || 0,
       owner: t.owner_name || 'N/A',
+      createdAt: t.created_at,
       updatedAt: t.stage_updated_at,
     })) || []
 

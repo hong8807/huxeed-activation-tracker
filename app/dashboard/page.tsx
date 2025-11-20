@@ -4,6 +4,9 @@ import StrategyCard from '@/components/dashboard/StrategyCard'
 import KPICard from '@/components/dashboard/KPICard'
 import Link from 'next/link'
 
+// 페이지 캐싱 설정 (30초마다 재검증)
+export const revalidate = 30
+
 export default async function DashboardPage() {
   const supabase = await createClient()
 
@@ -11,7 +14,7 @@ export default async function DashboardPage() {
   const { data: targets, error } = await supabase
     .from('targets')
     .select('*')
-    .order('our_est_revenue_krw', { ascending: false, nullsLast: true })
+    .order('our_est_revenue_krw', { ascending: false })
 
   // Debug logging
   console.log('🔍 Dashboard Debug:')

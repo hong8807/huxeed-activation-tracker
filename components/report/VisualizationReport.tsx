@@ -36,6 +36,7 @@ interface TargetTimelineItem {
   totalSaving: number
   revenue: number
   owner: string
+  createdAt: string
   updatedAt: string
 }
 
@@ -461,7 +462,7 @@ ${innerContent}
                     return (
                       <div key={item.stage} className="flex items-center justify-between p-2.5 rounded-md bg-gray-200 text-gray-400">
                         <span className="font-medium text-sm truncate">{item.label}</span>
-                        <span className="text-sm font-mono ml-2 flex-shrink-0">{item.count}개</span>
+                        <span className="text-sm font-mono ml-2 shrink-0">{item.count}개</span>
                       </div>
                     )
                   }
@@ -474,7 +475,7 @@ ${innerContent}
                       style={{ backgroundColor: stageColor }}
                     >
                       <span className="font-medium text-sm truncate">{item.label}</span>
-                      <span className="text-sm font-mono ml-2 flex-shrink-0">{item.count}개</span>
+                      <span className="text-sm font-mono ml-2 shrink-0">{item.count}개</span>
                     </div>
                   )
                 })}
@@ -602,11 +603,11 @@ ${innerContent}
               <div className="flex gap-2 items-center py-2 border-b border-gray-200 sticky top-0 bg-white z-10">
                 {/* Left Info Columns */}
                 <div className="flex gap-2 text-xs text-gray-500 font-medium">
-                  <div className="w-16 flex-shrink-0">담당자</div>
-                  <div className="w-20 flex-shrink-0">거래처</div>
-                  <div className="w-28 flex-shrink-0">품목</div>
-                  <div className="w-20 flex-shrink-0 text-center">시작일</div>
-                  <div className="w-20 flex-shrink-0 text-center">완료일</div>
+                  <div className="w-16 shrink-0">담당자</div>
+                  <div className="w-20 shrink-0">거래처</div>
+                  <div className="w-28 shrink-0">품목</div>
+                  <div className="w-20 shrink-0 text-center">시작일</div>
+                  <div className="w-20 shrink-0 text-center">완료일</div>
                 </div>
 
                 {/* Right Stage Columns */}
@@ -656,13 +657,13 @@ ${innerContent}
                   <div key={item.id} className="flex gap-2 items-center py-2 text-xs text-gray-800">
                     {/* Left Info Columns */}
                     <div className="flex gap-2">
-                      <div className="w-16 flex-shrink-0 truncate" title={item.owner}>{item.owner}</div>
-                      <div className="w-20 flex-shrink-0 truncate" title={item.account}>{item.account}</div>
-                      <div className="w-28 flex-shrink-0 truncate font-medium" title={item.product}>{item.product}</div>
-                      <div className="w-20 flex-shrink-0 text-center">
-                        {item.updatedAt ? new Date(item.updatedAt).toISOString().split('T')[0].slice(5) : '-'}
+                      <div className="w-16 shrink-0 truncate" title={item.owner}>{item.owner}</div>
+                      <div className="w-20 shrink-0 truncate" title={item.account}>{item.account}</div>
+                      <div className="w-28 shrink-0 truncate font-medium" title={item.product}>{item.product}</div>
+                      <div className="w-20 shrink-0 text-center">
+                        {item.createdAt ? new Date(item.createdAt).toISOString().split('T')[0].slice(5) : '-'}
                       </div>
-                      <div className="w-20 flex-shrink-0 text-center font-medium">
+                      <div className="w-20 shrink-0 text-center font-medium">
                         {completionDate !== '-' ? completionDate.slice(5) : '-'}
                       </div>
                     </div>
@@ -1119,8 +1120,8 @@ function GanttChartSVG({ data }: { data: TargetTimelineItem[] }) {
           const completionDate = item.stage === 'WON' && item.updatedAt
             ? new Date(item.updatedAt).toISOString().split('T')[0].slice(5)
             : '-'
-          const startDate = item.updatedAt
-            ? new Date(item.updatedAt).toISOString().split('T')[0].slice(5)
+          const startDate = item.createdAt
+            ? new Date(item.createdAt).toISOString().split('T')[0].slice(5)
             : '-'
 
           const progressWidth = ((ganttStages.indexOf(item.stage) + 1) / ganttStages.length) * chartWidth

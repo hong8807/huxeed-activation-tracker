@@ -37,7 +37,7 @@ export function formatPercent(value: number | null | undefined, decimals = 2): s
 }
 
 /**
- * 날짜를 한국어 형식으로 포맷팅
+ * 날짜를 한국어 형식으로 포맷팅 (한국 시간 기준)
  * @param date - Date 객체 또는 ISO 문자열
  * @returns 포맷된 문자열 (예: 2025년 1월 4일)
  */
@@ -45,6 +45,7 @@ export function formatDate(date: Date | string | null | undefined): string {
   if (!date) return '-'
   const d = typeof date === 'string' ? new Date(date) : date
   return d.toLocaleDateString('ko-KR', {
+    timeZone: 'Asia/Seoul',
     year: 'numeric',
     month: 'long',
     day: 'numeric',
@@ -52,18 +53,25 @@ export function formatDate(date: Date | string | null | undefined): string {
 }
 
 /**
- * 날짜를 짧은 형식으로 포맷팅
+ * 날짜를 짧은 형식으로 포맷팅 (한국 시간 기준)
  * @param date - Date 객체 또는 ISO 문자열
  * @returns 포맷된 문자열 (예: 2025-01-04)
  */
 export function formatDateShort(date: Date | string | null | undefined): string {
   if (!date) return '-'
   const d = typeof date === 'string' ? new Date(date) : date
-  return d.toISOString().split('T')[0]
+
+  // 한국 시간 기준으로 YYYY-MM-DD 형식 반환
+  return d.toLocaleDateString('ko-KR', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).replace(/\. /g, '-').replace('.', '')
 }
 
 /**
- * 날짜를 상세 형식으로 포맷팅 (시간 포함)
+ * 날짜를 상세 형식으로 포맷팅 (시간 포함, 한국 시간 기준)
  * @param date - Date 객체 또는 ISO 문자열
  * @returns 포맷된 문자열 (예: 2025-01-04 14:30)
  */
@@ -71,11 +79,13 @@ export function formatDateFull(date: Date | string | null | undefined): string {
   if (!date) return '-'
   const d = typeof date === 'string' ? new Date(date) : date
   return d.toLocaleString('ko-KR', {
+    timeZone: 'Asia/Seoul',
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
     hour: '2-digit',
     minute: '2-digit',
+    hour12: false
   })
 }
 

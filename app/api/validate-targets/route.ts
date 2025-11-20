@@ -73,7 +73,8 @@ export async function POST(request: NextRequest) {
     })
 
     // 엑셀 파일 파싱
-    const buffer = Buffer.from(await file.arrayBuffer())
+    const arrayBuffer = await file.arrayBuffer()
+    const buffer = Buffer.from(arrayBuffer) as any
     const workbook = new ExcelJS.Workbook()
 
     try {

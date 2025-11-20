@@ -22,6 +22,7 @@ const navItems: NavItem[] = [
   { name: 'Pipeline', href: '/pipeline', icon: 'view_kanban' },
   { name: 'Sourcing', href: '/pipeline/sourcing', icon: 'inventory_2' },
   { name: 'Reports', href: '/report', icon: 'assessment' },
+  { name: 'Meetings', href: '/meetings', icon: 'event_note' },
   { name: 'Documents', href: '/pipeline/documents', icon: 'folder_open' },
   { name: 'New Registration', href: '/pipeline/add', icon: 'add_circle' },
   { name: 'Excel Upload', href: '/pipeline/upload', icon: 'upload_file' },
@@ -82,7 +83,7 @@ export default function Sidebar() {
   };
 
   return (
-    <aside className="w-64 flex-shrink-0 bg-white dark:bg-[#1f2316] border-r border-card-border dark:border-card-border-dark flex flex-col">
+    <aside className="w-64 shrink-0 bg-white dark:bg-[#1f2316] border-r border-card-border dark:border-card-border-dark flex flex-col">
       {/* Logo Header */}
       <div className="h-16 flex items-center px-6 border-b border-card-border dark:border-card-border-dark">
         <Image

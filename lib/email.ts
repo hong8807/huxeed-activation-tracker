@@ -101,7 +101,7 @@ export function generatePasswordChangeEmailHTML({
         <p style="margin: 8px 0 0 0; color: #78350f; font-size: 13px; line-height: 1.5;">
           • 이메일: <strong>huxeed@huxeed.com</strong><br>
           • 비밀번호: 위의 새 비밀번호를 사용하세요<br>
-          • URL: <a href="http://localhost:3000/login" style="color: #1e40af; text-decoration: underline;">http://localhost:3000/login</a>
+          • URL: <a href="https://huxeed-activation-tracker.vercel.app/login" style="color: #1e40af; text-decoration: underline;">https://huxeed-activation-tracker.vercel.app/login</a>
         </p>
       </div>
 

@@ -88,7 +88,7 @@ export default function KPICard({ label, value, unit, icon, color }: KPICardProp
     <div className="group relative rounded-xl p-6 bg-white dark:bg-background-dark border border-card-border dark:border-card-border-dark shadow-sm hover:shadow-md transition-all duration-200">
       <div className="flex flex-col items-center justify-center text-center gap-3">
         {/* Icon */}
-        <div className={`flex-shrink-0 w-12 h-12 rounded-lg ${colors.bg} flex items-center justify-center transition-transform duration-200 group-hover:scale-105`}>
+        <div className={`shrink-0 w-12 h-12 rounded-lg ${colors.bg} flex items-center justify-center transition-transform duration-200 group-hover:scale-105`}>
           <IconComponent type={icon} className={`w-6 h-6 ${colors.icon}`} />
         </div>
 

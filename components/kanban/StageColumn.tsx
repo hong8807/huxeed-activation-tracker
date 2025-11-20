@@ -20,7 +20,7 @@ export default function StageColumn({ stage, targets }: StageColumnProps) {
   })
 
   return (
-    <div className="flex-shrink-0 w-80 min-w-80 bg-gray-100 rounded-lg">
+    <div className="shrink-0 w-80 min-w-80 bg-gray-100 rounded-lg">
       {/* Column Header */}
       <div className="px-4 py-3 border-b border-gray-200 bg-white rounded-t-lg">
         <div className="flex items-center justify-between">

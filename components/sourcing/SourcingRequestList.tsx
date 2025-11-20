@@ -99,12 +99,12 @@ export default function SourcingRequestList({ initialTargets, initialSuppliers }
         }
       } else {
         groups.set(normalizedName, {
-          product_name: productName,
+          product_name: productName || '',
           normalized_name: normalizedName,
           account_count: 1,
           owner_names: [target.owner_name || ''],
           created_by_names: createdByNames.get(normalizedName) || [], // v2.5: 제조원 입력자명
-          latest_created_at: target.created_at,
+          latest_created_at: target.created_at || '',
           sample_target: target,
           supplier_count: supplierCounts.get(normalizedName) || 0,
           current_stages: target.current_stage ? [target.current_stage] : []

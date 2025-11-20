@@ -149,33 +149,43 @@ export async function GET() {
 
     // 드롭다운 검증 추가
     // 현재매입_통화 필드 (I 컬럼) - 선택 입력
-    worksheet.dataValidations.add('I2:I100', {
-      type: 'list',
-      allowBlank: true,  // 선택 입력으로 변경
+    const currencyValidation = {
+      type: 'list' as const,
+      allowBlank: true,
       formulae: ['"USD,EUR,CNY,JPY,KRW"'],
       showErrorMessage: true,
       errorTitle: '입력 오류',
       error: 'USD, EUR, CNY, JPY, KRW 중 하나를 선택하세요',
-    })
+    }
+    for (let i = 2; i <= 100; i++) {
+      worksheet.getCell(`I${i}`).dataValidation = currencyValidation
+    }
+
     // 우리예상_통화 필드 (P 컬럼) - 필수 입력
-    worksheet.dataValidations.add('P2:P100', {
-      type: 'list',
+    const currencyValidationRequired = {
+      type: 'list' as const,
       allowBlank: false,
       formulae: ['"USD,EUR,CNY,JPY,KRW"'],
       showErrorMessage: true,
       errorTitle: '입력 오류',
       error: 'USD, EUR, CNY, JPY, KRW 중 하나를 선택하세요',
-    })
+    }
+    for (let i = 2; i <= 100; i++) {
+      worksheet.getCell(`P${i}`).dataValidation = currencyValidationRequired
+    }
 
     // 세그먼트 필드 (H 컬럼)
-    worksheet.dataValidations.add('H2:H100', {
-      type: 'list',
+    const segmentValidation = {
+      type: 'list' as const,
       allowBlank: false,
       formulae: ['"S,P,일반"'],
       showErrorMessage: true,
       errorTitle: '입력 오류',
       error: 'S, P, 일반 중 하나를 선택하세요',
-    })
+    }
+    for (let i = 2; i <= 100; i++) {
+      worksheet.getCell(`H${i}`).dataValidation = segmentValidation
+    }
 
     // 조건부 서식: 절감_총액_KRW < 0 → 빨간 배경 (역마진 경고)
     worksheet.addConditionalFormatting({
@@ -185,6 +195,7 @@ export async function GET() {
           type: 'cellIs',
           operator: 'lessThan',
           formulae: [0],
+          priority: 1,
           style: {
             fill: {
               type: 'pattern',
@@ -208,6 +219,7 @@ export async function GET() {
           type: 'cellIs',
           operator: 'lessThan',
           formulae: [0],
+          priority: 1,
           style: {
             fill: {
               type: 'pattern',
@@ -231,6 +243,7 @@ export async function GET() {
           type: 'cellIs',
           operator: 'lessThan',
           formulae: [0],
+          priority: 1,
           style: {
             fill: {
               type: 'pattern',
