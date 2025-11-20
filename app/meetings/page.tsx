@@ -13,6 +13,7 @@ interface MeetingItem {
   assignee_name: string | null
   reply_text: string | null
   is_done: boolean
+  is_record: boolean
   created_at: string
   updated_at: string
 }
@@ -528,6 +529,11 @@ export default function MeetingsPage() {
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-semibold border ${MEETING_TYPE_COLORS[item.meeting_type]}`}>
                         {highlightKeyword(item.meeting_type)}
                       </span>
+                      {item.is_record && (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-semibold bg-yellow-100 text-yellow-800 border border-yellow-300">
+                          📋 단순 기록
+                        </span>
+                      )}
                       <span className="text-sm text-gray-500">
                         {highlightKeyword(new Date(item.meeting_date).toLocaleDateString('ko-KR'))}
                       </span>
@@ -632,7 +638,7 @@ export default function MeetingsPage() {
                           </button>
                         </div>
                       </div>
-                    ) : (
+                    ) : !item.is_record ? (
                       <div className="space-y-2">
                         {item.assignee_name && (
                           <div className="text-sm">
@@ -649,6 +655,12 @@ export default function MeetingsPage() {
                         {!item.assignee_name && !item.reply_text && (
                           <p className="text-sm text-gray-400 italic">담당자 및 답변이 아직 입력되지 않았습니다</p>
                         )}
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <p className="text-sm text-gray-500 italic">
+                          📋 이 항목은 단순 기록입니다 (담당자/답변 불필요)
+                        </p>
                       </div>
                     )}
                   </div>
