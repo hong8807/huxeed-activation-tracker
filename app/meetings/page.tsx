@@ -54,6 +54,7 @@ export default function MeetingsPage() {
     assignee_name: '',
     reply_text: ''
   })
+  const [canDownload, setCanDownload] = useState<boolean>(false)
 
   // 데이터 로드
   useEffect(() => {
@@ -287,13 +288,15 @@ export default function MeetingsPage() {
               </p>
             </div>
             <div className="flex gap-2">
-              <button
-                onClick={handleExportExcel}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-[#95c11f] text-[#95c11f] rounded-md hover:bg-[#95c11f]/10 transition-colors font-semibold"
-              >
-                <ArrowDownTrayIcon className="w-5 h-5" />
-                엑셀 다운로드
-              </button>
+              {canDownload && (
+                <button
+                  onClick={handleExportExcel}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-[#95c11f] text-[#95c11f] rounded-md hover:bg-[#95c11f]/10 transition-colors font-semibold"
+                >
+                  <ArrowDownTrayIcon className="w-5 h-5" />
+                  엑셀 다운로드
+                </button>
+              )}
               <Link
                 href="/meetings/upload"
                 className="inline-flex items-center gap-2 px-4 py-2 bg-[#95c11f] text-white rounded-md hover:bg-[#7aa619] transition-colors font-semibold"
