@@ -58,6 +58,7 @@ export default function MeetingsPage() {
   })
   const [canDownload, setCanDownload] = useState<boolean>(false)
   const [showPrintModal, setShowPrintModal] = useState<boolean>(false)
+  const [showAllPrintModal, setShowAllPrintModal] = useState<boolean>(false)
 
   // 데이터 로드
   useEffect(() => {
@@ -350,6 +351,13 @@ export default function MeetingsPage() {
               </p>
             </div>
             <div className="flex gap-2">
+              <button
+                onClick={() => setShowAllPrintModal(true)}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors font-semibold"
+              >
+                <PrinterIcon className="w-5 h-5" />
+                전체 출력
+              </button>
               {canDownload && (
                 <button
                   onClick={handleExportExcel}
@@ -917,6 +925,158 @@ export default function MeetingsPage() {
         </div>
       )}
 
+      {/* 전체 출력 모달 */}
+      {showAllPrintModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            {/* 모달 헤더 */}
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4">
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="text-xl font-bold text-gray-900">
+                  회의 실행 항목 전체 출력
+                </h2>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => window.print()}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-[#95c11f] text-white rounded-md hover:bg-[#7aa619] transition-colors font-semibold"
+                  >
+                    <PrinterIcon className="w-5 h-5" />
+                    출력
+                  </button>
+                  <button
+                    onClick={() => setShowAllPrintModal(false)}
+                    className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors font-semibold"
+                  >
+                    닫기
+                  </button>
+                </div>
+              </div>
+              <div className="flex items-center justify-between text-sm text-gray-600">
+                <div className="flex items-center gap-4">
+                  <p>
+                    총 항목: <strong className="text-gray-900">{filteredItems.length}개</strong>
+                  </p>
+                  <p>
+                    실행 필요: <strong className="text-[#95c11f]">{filteredItems.filter(item => !item.is_done).length}개</strong>
+                  </p>
+                  <p>
+                    완료: <strong className="text-green-600">{filteredItems.filter(item => item.is_done).length}개</strong>
+                  </p>
+                </div>
+                <p className="text-xs text-gray-500">
+                  💡 현재 적용된 필터 조건에 맞는 항목만 출력됩니다
+                </p>
+              </div>
+            </div>
+
+            {/* 프린트 영역 */}
+            <div id="print-content-all" className="p-6">
+              <div className="print-header mb-6 pb-4 border-b-2 border-gray-800">
+                <h1 className="text-2xl font-bold text-gray-900 mb-1">회의 실행 항목</h1>
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <p className="text-sm text-gray-600">
+                      {selectedType !== 'all' && <span>회의: <strong>{selectedType}</strong> | </span>}
+                      {selectedAssignee !== 'all' && <span>담당자: <strong>{selectedAssignee}</strong> | </span>}
+                      {dateFilter !== 'all' && <span>기간: <strong>{dateFilter === 'today' ? '오늘' : dateFilter === 'week' ? '최근 7일' : dateFilter === 'month' ? '최근 30일' : '사용자 정의'}</strong> | </span>}
+                      {searchKeyword && <span>검색: <strong>"{searchKeyword}"</strong> | </span>}
+                      총 <strong>{filteredItems.length}개</strong> 항목
+                    </p>
+                  </div>
+                  <p className="text-sm text-gray-500">
+                    출력일: {new Date().toLocaleDateString('ko-KR')}
+                  </p>
+                </div>
+              </div>
+
+              {/* 리스트 형태 */}
+              <div className="space-y-3">
+                {filteredItems.length === 0 ? (
+                  <div className="text-center py-12">
+                    <p className="text-gray-500 mb-2">표시할 항목이 없습니다</p>
+                    <p className="text-sm text-gray-400">필터 조건을 변경해주세요</p>
+                  </div>
+                ) : (
+                  filteredItems.map((item, index) => (
+                    <div
+                      key={item.id}
+                      className={`list-item border-l-4 ${
+                        item.is_done ? 'border-green-500 bg-green-50' : 'border-[#95c11f] bg-gray-50'
+                      } px-4 py-3 break-inside-avoid`}
+                    >
+                      {/* 한 줄 헤더 */}
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-gray-900 text-base">
+                            {index + 1}.
+                          </span>
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${MEETING_TYPE_COLORS[item.meeting_type]}`}>
+                            {item.meeting_type}
+                          </span>
+                          {item.is_record && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-yellow-100 text-yellow-800 border border-yellow-300">
+                              📋 기록
+                            </span>
+                          )}
+                          {item.account_name && (
+                            <span className="text-sm text-gray-700">
+                              | <strong>{item.account_name}</strong>
+                            </span>
+                          )}
+                          {item.is_done && (
+                            <span className="text-xs text-green-600 font-semibold">
+                              ✓ 완료
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-xs text-gray-500">
+                          {new Date(item.meeting_date).toLocaleDateString('ko-KR')}
+                        </span>
+                      </div>
+
+                      {/* 내용 */}
+                      <div className={`text-sm mb-1 ${item.is_done ? 'text-gray-600' : 'text-gray-900'}`}>
+                        <strong className="text-gray-700">▪</strong> {item.content}
+                      </div>
+
+                      {/* 담당자 및 답변 (단순기록 아닌 경우만) */}
+                      {!item.is_record && (
+                        <>
+                          {item.assignee_name && (
+                            <div className="text-xs text-gray-600 ml-3">
+                              <strong>담당자:</strong> {item.assignee_name}
+                            </div>
+                          )}
+                          {item.reply_text && (
+                            <div className="text-xs text-gray-600 ml-3">
+                              <strong>답변:</strong> {item.reply_text}
+                            </div>
+                          )}
+                        </>
+                      )}
+
+                      {/* 완료 체크박스 (미완료 항목만) */}
+                      {!item.is_done && (
+                        <div className="mt-2 ml-3">
+                          <label className="inline-flex items-center gap-1.5 text-xs text-gray-500">
+                            <input
+                              type="checkbox"
+                              className="w-3.5 h-3.5 border border-gray-400 rounded"
+                              disabled
+                            />
+                            완료
+                          </label>
+                        </div>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 프린트 스타일 */}
       <style jsx global>{`
         @media print {
@@ -927,7 +1087,12 @@ export default function MeetingsPage() {
           #print-content * {
             visibility: visible;
           }
-          #print-content {
+          #print-content-all,
+          #print-content-all * {
+            visibility: visible;
+          }
+          #print-content,
+          #print-content-all {
             position: absolute;
             left: 0;
             top: 0;
@@ -938,7 +1103,6 @@ export default function MeetingsPage() {
             page-break-inside: avoid;
             break-inside: avoid;
             margin-bottom: 4mm;
-            border-left: 3px solid #95c11f !important;
           }
           .print-header {
             margin-bottom: 8mm;
