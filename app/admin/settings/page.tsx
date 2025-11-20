@@ -10,6 +10,7 @@ interface MenuPermissions {
   report: boolean;
   meetings: boolean;
   admin: boolean;
+  can_download_meetings: boolean;
 }
 
 interface EmailSubscriber {
@@ -28,6 +29,7 @@ const DEFAULT_PERMISSIONS: MenuPermissions = {
   report: true,
   meetings: true,
   admin: false,
+  can_download_meetings: false,
 };
 
 const MENU_LABELS = {
@@ -37,6 +39,7 @@ const MENU_LABELS = {
   report: 'Report',
   meetings: 'Meetings',
   admin: 'Admin Settings',
+  can_download_meetings: 'Meetings 다운로드',
 };
 
 export default function AdminSettingsPage() {

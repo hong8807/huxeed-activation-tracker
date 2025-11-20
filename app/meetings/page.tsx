@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { PlusIcon, FunnelIcon, CheckIcon, XMarkIcon, ArrowDownTrayIcon, CalendarIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline'
+import { PlusIcon, FunnelIcon, CheckIcon, XMarkIcon, ArrowDownTrayIcon, CalendarIcon, MagnifyingGlassIcon, PrinterIcon } from '@heroicons/react/24/outline'
 
 interface MeetingItem {
   id: number
@@ -38,6 +38,8 @@ export default function MeetingsPage() {
   const [customEndDate, setCustomEndDate] = useState<string>('')
   const [showCustomDate, setShowCustomDate] = useState(false)
   const [searchKeyword, setSearchKeyword] = useState<string>('')
+  const [selectedAssignee, setSelectedAssignee] = useState<string>('all')
+  const [uniqueAssignees, setUniqueAssignees] = useState<string[]>([])
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editData, setEditData] = useState<{
     meeting_type: string
@@ -55,11 +57,35 @@ export default function MeetingsPage() {
     reply_text: ''
   })
   const [canDownload, setCanDownload] = useState<boolean>(false)
+  const [showPrintModal, setShowPrintModal] = useState<boolean>(false)
 
   // 데이터 로드
   useEffect(() => {
     fetchItems()
+    checkDownloadPermission()
   }, [])
+
+  // 다운로드 권한 확인
+  const checkDownloadPermission = async () => {
+    try {
+      console.log('🔍 Checking download permission...')
+      const response = await fetch('/api/auth/session')
+      console.log('📡 Session API response:', response.status)
+
+      if (response.ok) {
+        const data = await response.json()
+        console.log('📊 Session data:', data)
+        console.log('✅ Can download meetings:', data.can_download_meetings)
+        setCanDownload(data.can_download_meetings || false)
+      } else {
+        console.error('❌ Session check failed:', response.status)
+        setCanDownload(false)
+      }
+    } catch (error) {
+      console.error('❌ Failed to check download permission:', error)
+      setCanDownload(false)
+    }
+  }
 
   // 필터링
   useEffect(() => {
@@ -106,6 +132,11 @@ export default function MeetingsPage() {
       filtered = filtered.filter(item => item.meeting_date <= customEndDate)
     }
 
+    // 담당자 필터
+    if (selectedAssignee !== 'all') {
+      filtered = filtered.filter(item => item.assignee_name === selectedAssignee)
+    }
+
     // 검색 필터 (모든 필드에서 검색)
     if (searchKeyword.trim()) {
       const keyword = searchKeyword.toLowerCase().trim()
@@ -121,8 +152,30 @@ export default function MeetingsPage() {
       })
     }
 
+    // 정렬 로직
+    // 1순위: 최신 날짜가 위로 (meeting_date 내림차순)
+    // 2순위: 단순기록 아닌 항목이 위로 (is_record: false가 위로)
+    // 3순위: 완료되지 않은 항목이 위로 (is_done: false가 위로)
+    filtered.sort((a, b) => {
+      // 1순위: 날짜 비교 (최신이 위로)
+      const dateCompare = new Date(b.meeting_date).getTime() - new Date(a.meeting_date).getTime()
+      if (dateCompare !== 0) return dateCompare
+
+      // 2순위: 단순기록 여부 (false가 위로)
+      if (a.is_record !== b.is_record) {
+        return a.is_record ? 1 : -1
+      }
+
+      // 3순위: 완료 여부 (false가 위로)
+      if (a.is_done !== b.is_done) {
+        return a.is_done ? 1 : -1
+      }
+
+      return 0
+    })
+
     setFilteredItems(filtered)
-  }, [items, selectedType, showCompleted, dateFilter, customStartDate, customEndDate, searchKeyword])
+  }, [items, selectedType, showCompleted, dateFilter, customStartDate, customEndDate, searchKeyword, selectedAssignee])
 
   const fetchItems = async () => {
     try {
@@ -130,6 +183,15 @@ export default function MeetingsPage() {
       const response = await fetch('/api/meetings')
       const data = await response.json()
       setItems(data.data || [])
+
+      // 고유 담당자 목록 추출
+      const assignees = data.data
+        .map((item: MeetingItem) => item.assignee_name)
+        .filter((name: string | null) => name && name.trim())
+        .filter((name: string, index: number, self: string[]) => self.indexOf(name) === index)
+        .sort()
+
+      setUniqueAssignees(assignees)
     } catch (error) {
       console.error('Failed to fetch meeting items:', error)
     } finally {
@@ -332,7 +394,7 @@ export default function MeetingsPage() {
             )}
           </div>
 
-          {/* 첫 번째 행: 회의 타입 & 완료 항목 */}
+          {/* 첫 번째 행: 회의 타입 & 담당자 & 완료 항목 */}
           <div className="flex items-center justify-between gap-4 pt-3 border-t border-gray-200">
             <div className="flex items-center gap-3">
               <FunnelIcon className="w-5 h-5 text-gray-500" />
@@ -347,6 +409,28 @@ export default function MeetingsPage() {
                   <option key={type} value={type}>{type}</option>
                 ))}
               </select>
+
+              <span className="text-sm font-semibold text-gray-700 ml-4">담당자:</span>
+              <select
+                value={selectedAssignee}
+                onChange={(e) => setSelectedAssignee(e.target.value)}
+                className="px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#95c11f]"
+              >
+                <option value="all">전체 담당자</option>
+                {uniqueAssignees.map(assignee => (
+                  <option key={assignee} value={assignee}>{assignee}</option>
+                ))}
+              </select>
+
+              {selectedAssignee !== 'all' && (
+                <button
+                  onClick={() => setShowPrintModal(true)}
+                  className="ml-2 inline-flex items-center gap-1 px-3 py-1.5 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors text-sm font-semibold"
+                >
+                  <PrinterIcon className="w-4 h-4" />
+                  노트 출력
+                </button>
+              )}
             </div>
             <label className="flex items-center gap-2 cursor-pointer">
               <input
@@ -459,6 +543,18 @@ export default function MeetingsPage() {
               />
             </div>
           )}
+        </div>
+      </div>
+
+      {/* 안내 메시지 */}
+      <div className="max-w-7xl mx-auto px-8 py-4">
+        <div className="bg-blue-50 border-l-4 border-blue-400 px-4 py-3 rounded-r-lg flex items-start">
+          <svg className="w-5 h-5 text-blue-600 mr-3 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+          </svg>
+          <p className="text-sm text-blue-800">
+            <strong>안내:</strong> 특정인이 아닌 다같이 확인이 필요한 내용은 부서명으로 기재
+          </p>
         </div>
       </div>
 
@@ -698,6 +794,162 @@ export default function MeetingsPage() {
           </div>
         )}
       </div>
+
+      {/* 프린트 모달 */}
+      {showPrintModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            {/* 모달 헤더 */}
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4">
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="text-xl font-bold text-gray-900">
+                  {selectedAssignee}님의 회의 실행 항목
+                </h2>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => window.print()}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-[#95c11f] text-white rounded-md hover:bg-[#7aa619] transition-colors font-semibold"
+                  >
+                    <PrinterIcon className="w-5 h-5" />
+                    출력
+                  </button>
+                  <button
+                    onClick={() => setShowPrintModal(false)}
+                    className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors font-semibold"
+                  >
+                    닫기
+                  </button>
+                </div>
+              </div>
+              <div className="flex items-center justify-between text-sm text-gray-600">
+                <p>
+                  실행 필요 항목: <strong className="text-[#95c11f]">{filteredItems.filter(item => !item.is_done).length}개</strong>
+                </p>
+                <p className="text-xs text-gray-500">
+                  💡 완료된 항목은 제외됩니다
+                </p>
+              </div>
+            </div>
+
+            {/* 프린트 영역 */}
+            <div id="print-content" className="p-6">
+              <div className="print-header mb-6 pb-4 border-b-2 border-gray-800">
+                <h1 className="text-2xl font-bold text-gray-900 mb-1">회의 실행 항목</h1>
+                <div className="flex items-center justify-between">
+                  <p className="text-base text-gray-600">담당자: <strong>{selectedAssignee}</strong></p>
+                  <p className="text-sm text-gray-500">
+                    출력일: {new Date().toLocaleDateString('ko-KR')} | 총 {filteredItems.filter(item => !item.is_done).length}개 항목
+                  </p>
+                </div>
+              </div>
+
+              {/* 리스트 형태 (완료 항목 제외) */}
+              <div className="space-y-3">
+                {filteredItems.filter(item => !item.is_done).length === 0 ? (
+                  <div className="text-center py-12">
+                    <p className="text-gray-500 mb-2">🎉 모든 항목이 완료되었습니다!</p>
+                    <p className="text-sm text-gray-400">실행이 필요한 항목이 없습니다.</p>
+                  </div>
+                ) : (
+                  filteredItems
+                    .filter(item => !item.is_done)
+                    .map((item, index) => (
+                  <div
+                    key={item.id}
+                    className="list-item border-l-4 border-[#95c11f] bg-gray-50 px-4 py-3 break-inside-avoid"
+                  >
+                    {/* 한 줄 헤더 */}
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-gray-900 text-base">
+                          {index + 1}.
+                        </span>
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${MEETING_TYPE_COLORS[item.meeting_type]}`}>
+                          {item.meeting_type}
+                        </span>
+                        {item.account_name && (
+                          <span className="text-sm text-gray-700">
+                            | <strong>{item.account_name}</strong>
+                          </span>
+                        )}
+                        {item.is_done && (
+                          <span className="text-xs text-green-600 font-semibold">
+                            ✓ 완료
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-xs text-gray-500">
+                        {new Date(item.meeting_date).toLocaleDateString('ko-KR')}
+                      </span>
+                    </div>
+
+                    {/* 내용 한 줄 */}
+                    <div className="text-sm text-gray-900 mb-1">
+                      <strong className="text-gray-700">▪</strong> {item.content}
+                    </div>
+
+                    {/* 답변 (있는 경우만) */}
+                    {item.reply_text && (
+                      <div className="text-xs text-gray-600 ml-3">
+                        <strong>답변:</strong> {item.reply_text}
+                      </div>
+                    )}
+
+                    {/* 완료 체크박스 (미완료 항목만) */}
+                    {!item.is_done && (
+                      <div className="mt-2 ml-3">
+                        <label className="inline-flex items-center gap-1.5 text-xs text-gray-500">
+                          <input
+                            type="checkbox"
+                            className="w-3.5 h-3.5 border border-gray-400 rounded"
+                            disabled
+                          />
+                          완료
+                        </label>
+                      </div>
+                    )}
+                  </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 프린트 스타일 */}
+      <style jsx global>{`
+        @media print {
+          body * {
+            visibility: hidden;
+          }
+          #print-content,
+          #print-content * {
+            visibility: visible;
+          }
+          #print-content {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            padding: 15mm;
+          }
+          .list-item {
+            page-break-inside: avoid;
+            break-inside: avoid;
+            margin-bottom: 4mm;
+            border-left: 3px solid #95c11f !important;
+          }
+          .print-header {
+            margin-bottom: 8mm;
+            padding-bottom: 5mm;
+          }
+          @page {
+            size: A4;
+            margin: 15mm;
+          }
+        }
+      `}</style>
     </div>
   )
 }

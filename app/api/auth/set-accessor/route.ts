@@ -73,9 +73,15 @@ export async function POST(request: NextRequest) {
       report: true,
       meetings: true,
       admin: false,
+      can_download_meetings: false,
     }
 
     const permissions = subscriber.permissions || defaultPermissions
+
+    console.log('👤 Accessor login:', name.trim())
+    console.log('📊 Subscriber permissions:', subscriber.permissions)
+    console.log('✅ Final permissions:', permissions)
+    console.log('📥 Can download meetings:', permissions.can_download_meetings)
 
     // Create access log entry
     const { error: logError } = await supabase
