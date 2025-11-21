@@ -1102,8 +1102,12 @@ export default function MeetingsPage() {
           /* 프린트 영역 위치 */
           #print-content,
           #print-content-all {
-            position: static;
+            position: absolute;
+            left: 0;
+            top: 0;
             width: 100%;
+            height: auto;
+            overflow: visible;
           }
 
           /* 프린트 헤더 - 컴팩트 */
