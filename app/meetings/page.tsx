@@ -1099,15 +1099,15 @@ export default function MeetingsPage() {
             visibility: visible !important;
           }
 
-          /* 프린트 영역 위치 */
+          /* 프린트 영역 위치 - static으로 변경하여 자연스러운 페이지 흐름 */
           #print-content,
           #print-content-all {
-            position: absolute !important;
-            left: 0 !important;
-            top: 0 !important;
+            position: static !important;
             width: 100% !important;
             padding: 0 !important;
             margin: 0 !important;
+            height: auto !important;
+            overflow: visible !important;
           }
 
           /* 프린트 헤더 */
@@ -1123,7 +1123,15 @@ export default function MeetingsPage() {
 
           .list-item {
             margin-bottom: 4mm;
-            /* page-break-inside 제거하여 항목이 페이지를 넘어갈 수 있도록 허용 */
+            /* 회색 배경 제거 */
+            background: white !important;
+            border-left: 4px solid #95c11f !important;
+          }
+
+          /* 회색 배경 모두 제거 */
+          .bg-gray-50,
+          .bg-green-50 {
+            background: white !important;
           }
 
           /* 배경색 출력 */
