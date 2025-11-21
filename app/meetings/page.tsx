@@ -990,7 +990,7 @@ export default function MeetingsPage() {
               </div>
 
               {/* 리스트 형태 */}
-              <div className="print-list-container">
+              <div className="space-y-3 print:space-y-0">
                 {filteredItems.length === 0 ? (
                   <div className="text-center py-12">
                     <p className="text-gray-500 mb-2">표시할 항목이 없습니다</p>
@@ -1000,10 +1000,11 @@ export default function MeetingsPage() {
                   filteredItems.map((item, index) => (
                     <div
                       key={item.id}
-                      className={`list-item border-l-4 ${
+                      data-index={index + 1}
+                      className={`print-meeting-item border-l-4 ${
                         item.is_done ? 'border-green-500 bg-green-50' : 'border-[#95c11f] bg-gray-50'
-                      } px-4 py-3 break-inside-avoid ${
-                        (index + 1) % 6 === 0 && index !== filteredItems.length - 1 ? 'page-break-item' : ''
+                      } px-4 py-3 ${
+                        (index + 1) % 8 === 0 && index !== filteredItems.length - 1 ? 'print-page-break' : ''
                       }`}
                     >
                       {/* 한 줄 헤더 */}
@@ -1084,13 +1085,14 @@ export default function MeetingsPage() {
         @media print {
           /* 페이지 설정 */
           @page {
-            size: A4;
-            margin: 12mm;
+            size: A4 portrait;
+            margin: 15mm 12mm;
           }
 
           /* 모든 요소 숨기기 */
           body * {
-            visibility: hidden;
+            visibility: hidden !important;
+            position: static !important;
           }
 
           /* 프린트 영역만 표시 */
@@ -1098,112 +1100,154 @@ export default function MeetingsPage() {
           #print-content *,
           #print-content-all,
           #print-content-all * {
-            visibility: visible;
+            visibility: visible !important;
           }
 
           /* 프린트 영역 위치 */
           #print-content,
           #print-content-all {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            max-width: none !important;
           }
 
-          /* 프린트 헤더 */
+          /* 프린트 헤더 - 페이지마다 유지 */
           .print-header {
-            page-break-after: avoid;
-            break-after: avoid;
-            margin-bottom: 5mm;
-            padding-bottom: 3mm;
+            page-break-after: avoid !important;
+            break-after: avoid !important;
+            margin-bottom: 4mm !important;
+            padding-bottom: 2mm !important;
           }
 
           .print-header h1 {
-            font-size: 18pt;
-            margin-bottom: 2mm;
+            font-size: 16pt !important;
+            margin-bottom: 1mm !important;
+            font-weight: bold !important;
           }
 
           .print-header p {
-            font-size: 10pt;
-            margin: 0;
+            font-size: 9pt !important;
+            margin: 0 !important;
           }
 
-          /* 리스트 컨테이너 - BLOCK 레이아웃 강제 */
-          .print-list-container {
+          /* 리스트 컨테이너 - 완전한 BLOCK 레이아웃 */
+          #print-content-all .space-y-3,
+          #print-content .space-y-3 {
             display: block !important;
-            flex-direction: column !important;
             margin: 0 !important;
             padding: 0 !important;
             overflow: visible !important;
+            height: auto !important;
           }
 
-          /* 리스트 항목 - 회색 배경 제거, 컴팩트 */
-          .list-item {
+          /* 프린트 항목 - 기본 스타일 */
+          .print-meeting-item {
             display: block !important;
-            background: transparent !important;
+            position: relative !important;
+            background: white !important;
             border: 1px solid #d1d5db !important;
-            border-left: 3px solid #95c11f !important;
+            border-left-width: 3px !important;
             padding: 2mm 3mm !important;
-            margin-bottom: 2mm !important;
-            page-break-inside: avoid;
-            break-inside: avoid;
+            margin-bottom: 2.5mm !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+            overflow: visible !important;
           }
 
-          /* 6개마다 페이지 분할 */
-          .page-break-item {
+          /* 6개마다 강제 페이지 분할 */
+          .print-page-break {
             page-break-after: page !important;
             break-after: page !important;
+            margin-bottom: 0 !important;
           }
 
-          /* 회색 배경 완전 제거 */
-          .bg-gray-50,
-          .bg-green-50,
-          .list-item.bg-gray-50,
-          .list-item.bg-green-50 {
-            background: transparent !important;
+          /* 배경색 제거 */
+          .print-meeting-item,
+          .print-meeting-item.bg-gray-50,
+          .print-meeting-item.bg-green-50 {
+            background: white !important;
           }
 
-          /* 텍스트 크기 축소 */
-          .list-item {
-            font-size: 9pt;
-            line-height: 1.3;
+          /* 텍스트 크기 조정 */
+          .print-meeting-item {
+            font-size: 9pt !important;
+            line-height: 1.35 !important;
           }
 
-          .list-item .text-base {
-            font-size: 10pt;
+          .print-meeting-item .text-base {
+            font-size: 10pt !important;
           }
 
-          .list-item .text-sm {
-            font-size: 8pt;
+          .print-meeting-item .text-sm {
+            font-size: 8.5pt !important;
           }
 
-          .list-item .text-xs {
-            font-size: 7pt;
+          .print-meeting-item .text-xs {
+            font-size: 7.5pt !important;
           }
 
-          /* 항목 내부 여백 축소 */
-          .list-item > div {
-            margin-bottom: 1mm;
+          /* 여백 축소 */
+          .print-meeting-item > div {
+            margin-bottom: 1mm !important;
           }
 
-          /* Flexbox 제거 */
-          .list-item .flex {
+          .print-meeting-item .mb-2 {
+            margin-bottom: 1.5mm !important;
+          }
+
+          .print-meeting-item .mb-1 {
+            margin-bottom: 0.8mm !important;
+          }
+
+          .print-meeting-item .mt-2 {
+            margin-top: 1.5mm !important;
+          }
+
+          /* Flex 레이아웃을 Inline-block으로 변환 */
+          .print-meeting-item .flex {
             display: block !important;
           }
 
-          .list-item .flex.items-center {
-            display: inline-block !important;
+          .print-meeting-item .flex.items-center,
+          .print-meeting-item .flex.justify-between {
+            display: block !important;
           }
 
-          .list-item .gap-2,
-          .list-item .gap-4 {
+          .print-meeting-item .flex.items-center > * {
+            display: inline-block !important;
+            vertical-align: middle !important;
+          }
+
+          /* Gap 제거 */
+          .print-meeting-item .gap-2,
+          .print-meeting-item .gap-4 {
             gap: 0 !important;
           }
 
+          .print-meeting-item .gap-2 > * + * {
+            margin-left: 2mm !important;
+          }
+
           /* 배지 크기 축소 */
-          .list-item span[class*="inline-flex"] {
-            padding: 0.5mm 1.5mm;
-            font-size: 7pt;
+          .print-meeting-item span[class*="inline-flex"] {
+            padding: 0.5mm 1.2mm !important;
+            font-size: 7pt !important;
+            display: inline-block !important;
+            margin-right: 1mm !important;
+          }
+
+          /* 체크박스 크기 */
+          .print-meeting-item input[type="checkbox"] {
+            width: 3mm !important;
+            height: 3mm !important;
+          }
+
+          /* 불필요한 요소 숨김 */
+          .print-meeting-item .hover\\:bg-gray-200,
+          .print-meeting-item button:not(input[type="checkbox"]) {
+            display: none !important;
           }
         }
       `}</style>
