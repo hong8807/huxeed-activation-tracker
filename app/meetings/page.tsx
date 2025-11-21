@@ -990,7 +990,7 @@ export default function MeetingsPage() {
               </div>
 
               {/* 리스트 형태 */}
-              <div className="space-y-3">
+              <div className="print-list-container">
                 {filteredItems.length === 0 ? (
                   <div className="text-center py-12">
                     <p className="text-gray-500 mb-2">표시할 항목이 없습니다</p>
@@ -1002,7 +1002,9 @@ export default function MeetingsPage() {
                       key={item.id}
                       className={`list-item border-l-4 ${
                         item.is_done ? 'border-green-500 bg-green-50' : 'border-[#95c11f] bg-gray-50'
-                      } px-4 py-3 break-inside-avoid`}
+                      } px-4 py-3 break-inside-avoid ${
+                        (index + 1) % 6 === 0 && index !== filteredItems.length - 1 ? 'page-break-item' : ''
+                      }`}
                     >
                       {/* 한 줄 헤더 */}
                       <div className="flex items-center justify-between mb-2">
@@ -1106,13 +1108,12 @@ export default function MeetingsPage() {
             left: 0;
             top: 0;
             width: 100%;
-            height: auto;
-            overflow: visible;
           }
 
-          /* 프린트 헤더 - 컴팩트 */
+          /* 프린트 헤더 */
           .print-header {
             page-break-after: avoid;
+            break-after: avoid;
             margin-bottom: 5mm;
             padding-bottom: 3mm;
           }
@@ -1127,21 +1128,31 @@ export default function MeetingsPage() {
             margin: 0;
           }
 
-          /* 리스트 컨테이너 - 공백 최소화 */
-          .space-y-3 {
-            display: block;
-            margin: 0;
-            padding: 0;
+          /* 리스트 컨테이너 - BLOCK 레이아웃 강제 */
+          .print-list-container {
+            display: block !important;
+            flex-direction: column !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: visible !important;
           }
 
-          /* 리스트 항목 - 회색 배경 완전 제거, 공백 축소 */
+          /* 리스트 항목 - 회색 배경 제거, 컴팩트 */
           .list-item {
+            display: block !important;
             background: transparent !important;
             border: 1px solid #d1d5db !important;
             border-left: 3px solid #95c11f !important;
             padding: 2mm 3mm !important;
             margin-bottom: 2mm !important;
-            page-break-inside: auto;
+            page-break-inside: avoid;
+            break-inside: avoid;
+          }
+
+          /* 6개마다 페이지 분할 */
+          .page-break-item {
+            page-break-after: page !important;
+            break-after: page !important;
           }
 
           /* 회색 배경 완전 제거 */
@@ -1173,6 +1184,20 @@ export default function MeetingsPage() {
           /* 항목 내부 여백 축소 */
           .list-item > div {
             margin-bottom: 1mm;
+          }
+
+          /* Flexbox 제거 */
+          .list-item .flex {
+            display: block !important;
+          }
+
+          .list-item .flex.items-center {
+            display: inline-block !important;
+          }
+
+          .list-item .gap-2,
+          .list-item .gap-4 {
+            gap: 0 !important;
           }
 
           /* 배지 크기 축소 */
