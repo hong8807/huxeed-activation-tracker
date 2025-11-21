@@ -1086,55 +1086,25 @@ export default function MeetingsPage() {
             margin: 15mm;
           }
 
-          /* 페이지 전체 배경 */
-          body {
-            background: white;
-            margin: 0;
-            padding: 0;
+          /* 모든 요소 숨기기 */
+          body * {
+            visibility: hidden !important;
           }
 
-          /* 메인 페이지 내용 숨기기 */
-          body > div:first-child {
-            display: none;
+          /* 프린트 영역만 표시 */
+          #print-content,
+          #print-content *,
+          #print-content-all,
+          #print-content-all * {
+            visibility: visible !important;
           }
 
-          /* 프린트 모달만 표시 */
-          body > div.fixed {
-            display: block !important;
-            position: static !important;
-            background: white !important;
-            inset: auto !important;
-            z-index: auto !important;
-            padding: 0 !important;
-            margin: 0 !important;
-          }
-
-          /* 모달 오버레이 배경 제거 */
-          body > div.fixed::before {
-            display: none !important;
-          }
-
-          /* 모달 내부 컨테이너 */
-          body > div.fixed > div {
-            max-width: 100% !important;
-            max-height: none !important;
-            overflow: visible !important;
-            box-shadow: none !important;
-            border-radius: 0 !important;
-            margin: 0 !important;
-          }
-
-          /* 모달 헤더(버튼 영역) 숨기기 */
-          body > div.fixed .sticky {
-            display: none !important;
-          }
-
-          /* 프린트 콘텐츠 영역 */
+          /* 프린트 영역 위치 */
           #print-content,
           #print-content-all {
-            display: block !important;
-            visibility: visible !important;
-            position: static !important;
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
             width: 100% !important;
             padding: 0 !important;
             margin: 0 !important;
@@ -1142,31 +1112,24 @@ export default function MeetingsPage() {
 
           /* 프린트 헤더 */
           .print-header {
-            margin-bottom: 8mm;
-            padding-bottom: 4mm;
             page-break-after: avoid;
-            break-after: avoid;
+            margin-bottom: 10mm;
           }
 
-          /* 리스트 항목 - 페이지 분할 허용 */
-          .list-item {
-            margin-bottom: 3mm;
-            page-break-inside: auto;
-            break-inside: auto;
-            orphans: 2;
-            widows: 2;
-          }
-
-          /* 여백 스타일 */
+          /* 리스트 항목들 */
           .space-y-3 {
             display: block !important;
           }
 
-          /* 배경색 유지 */
+          .list-item {
+            margin-bottom: 4mm;
+            /* page-break-inside 제거하여 항목이 페이지를 넘어갈 수 있도록 허용 */
+          }
+
+          /* 배경색 출력 */
           * {
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
-            color-adjust: exact !important;
           }
         }
       `}</style>
