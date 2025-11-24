@@ -309,17 +309,20 @@ export default function MeetingsPage() {
         }),
       })
 
+      const result = await response.json()
+
       if (response.ok) {
         // 댓글 입력창 초기화
         setNewComment(prev => ({ ...prev, [meetingItemId]: '' }))
         // 댓글 목록 새로고침
         await fetchComments(meetingItemId)
       } else {
-        alert('댓글 작성에 실패했습니다')
+        console.error('Failed to create comment:', result)
+        alert(`댓글 작성에 실패했습니다: ${result.details || result.error || '알 수 없는 오류'}`)
       }
     } catch (error) {
       console.error('Failed to add comment:', error)
-      alert('댓글 작성 중 오류가 발생했습니다')
+      alert('댓글 작성 중 오류가 발생했습니다: ' + String(error))
     }
   }
 

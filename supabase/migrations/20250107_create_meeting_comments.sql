@@ -1,7 +1,10 @@
+-- 기존 테이블이 있으면 삭제 (개발 환경용)
+drop table if exists meeting_comments cascade;
+
 -- 회의록 댓글 테이블 생성
-create table if not exists meeting_comments (
-  id uuid primary key default gen_random_uuid(),
-  meeting_item_id uuid not null references meeting_items(id) on delete cascade,
+create table meeting_comments (
+  id bigserial primary key,
+  meeting_item_id bigint not null references meeting_items(id) on delete cascade,
   user_name text not null,
   comment_text text not null,
   created_at timestamp with time zone default now(),
@@ -20,13 +23,13 @@ create policy "Anyone can read comments"
   on meeting_comments for select
   using (true);
 
--- 인증된 사용자만 댓글을 작성할 수 있도록
-create policy "Authenticated users can insert comments"
+-- 모든 사용자가 댓글을 작성할 수 있도록 (간단한 인증 시스템)
+create policy "Anyone can insert comments"
   on meeting_comments for insert
-  with check (auth.role() = 'authenticated');
+  with check (true);
 
--- 댓글 작성자만 자신의 댓글을 삭제할 수 있도록
-create policy "Users can delete their own comments"
+-- 모든 사용자가 댓글을 삭제할 수 있도록 (간단한 인증 시스템)
+create policy "Anyone can delete comments"
   on meeting_comments for delete
   using (true);
 

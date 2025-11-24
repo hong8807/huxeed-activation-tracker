@@ -44,9 +44,12 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+    console.log('📝 Comment creation request:', body);
+
     const { meeting_item_id, user_name, comment_text } = body;
 
     if (!meeting_item_id || !user_name || !comment_text) {
+      console.error('❌ Missing required fields:', { meeting_item_id, user_name, comment_text });
       return NextResponse.json(
         { error: 'meeting_item_id, user_name, and comment_text are required' },
         { status: 400 }
@@ -55,6 +58,7 @@ export async function POST(request: NextRequest) {
 
     const supabase = await createClient();
 
+    console.log('🔄 Attempting to insert comment...');
     const { data, error } = await supabase
       .from('meeting_comments')
       .insert({
@@ -66,16 +70,26 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) {
-      console.error('Failed to create comment:', error);
+      console.error('❌ Supabase error:', error);
+      console.error('❌ Error code:', error.code);
+      console.error('❌ Error message:', error.message);
+      console.error('❌ Error details:', error.details);
+      console.error('❌ Error hint:', error.hint);
       return NextResponse.json(
-        { error: 'Failed to create comment', details: error.message },
+        {
+          error: 'Failed to create comment',
+          details: error.message,
+          code: error.code,
+          hint: error.hint
+        },
         { status: 500 }
       );
     }
 
+    console.log('✅ Comment created successfully:', data);
     return NextResponse.json({ data }, { status: 201 });
   } catch (error) {
-    console.error('POST /api/meetings/comments error:', error);
+    console.error('❌ POST /api/meetings/comments error:', error);
     return NextResponse.json(
       { error: 'Internal server error', details: String(error) },
       { status: 500 }
