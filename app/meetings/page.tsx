@@ -18,6 +18,15 @@ interface MeetingItem {
   updated_at: string
 }
 
+interface MeetingComment {
+  id: string
+  meeting_item_id: string
+  user_name: string
+  comment_text: string
+  created_at: string
+  updated_at: string
+}
+
 const MEETING_TYPES = ['일간회의', '월간회의', '분기회의', '년마감회의']
 
 const MEETING_TYPE_COLORS: Record<string, string> = {
@@ -57,6 +66,10 @@ export default function MeetingsPage() {
     reply_text: ''
   })
   const [canDownload, setCanDownload] = useState<boolean>(false)
+  const [comments, setComments] = useState<Record<number, MeetingComment[]>>({})
+  const [showComments, setShowComments] = useState<Record<number, boolean>>({})
+  const [newComment, setNewComment] = useState<Record<number, string>>({})
+  const [currentUserName, setCurrentUserName] = useState<string>('')
   const [showPrintModal, setShowPrintModal] = useState<boolean>(false)
   const [showAllPrintModal, setShowAllPrintModal] = useState<boolean>(false)
 
@@ -64,6 +77,9 @@ export default function MeetingsPage() {
   useEffect(() => {
     fetchItems()
     checkDownloadPermission()
+    // localStorage에서 사용자 이름 가져오기
+    const userName = localStorage.getItem('userName') || '익명'
+    setCurrentUserName(userName)
   }, [])
 
   // 다운로드 권한 확인
@@ -248,6 +264,86 @@ export default function MeetingsPage() {
     }
   }
 
+  // 댓글 로드
+  const fetchComments = async (meetingItemId: number) => {
+    try {
+      const response = await fetch(`/api/meetings/comments?meeting_item_id=${meetingItemId}`)
+      if (response.ok) {
+        const data = await response.json()
+        setComments(prev => ({ ...prev, [meetingItemId]: data.data }))
+      }
+    } catch (error) {
+      console.error('Failed to fetch comments:', error)
+    }
+  }
+
+  // 댓글 토글 (열기/닫기)
+  const toggleComments = async (meetingItemId: number) => {
+    const isCurrentlyShown = showComments[meetingItemId]
+
+    if (!isCurrentlyShown) {
+      // 댓글을 열 때만 로드
+      await fetchComments(meetingItemId)
+    }
+
+    setShowComments(prev => ({ ...prev, [meetingItemId]: !isCurrentlyShown }))
+  }
+
+  // 댓글 작성
+  const handleAddComment = async (meetingItemId: number) => {
+    const commentText = newComment[meetingItemId]?.trim()
+
+    if (!commentText) {
+      alert('댓글 내용을 입력해주세요')
+      return
+    }
+
+    try {
+      const response = await fetch('/api/meetings/comments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          meeting_item_id: meetingItemId,
+          user_name: currentUserName,
+          comment_text: commentText,
+        }),
+      })
+
+      if (response.ok) {
+        // 댓글 입력창 초기화
+        setNewComment(prev => ({ ...prev, [meetingItemId]: '' }))
+        // 댓글 목록 새로고침
+        await fetchComments(meetingItemId)
+      } else {
+        alert('댓글 작성에 실패했습니다')
+      }
+    } catch (error) {
+      console.error('Failed to add comment:', error)
+      alert('댓글 작성 중 오류가 발생했습니다')
+    }
+  }
+
+  // 댓글 삭제
+  const handleDeleteComment = async (commentId: string, meetingItemId: number) => {
+    if (!confirm('댓글을 삭제하시겠습니까?')) return
+
+    try {
+      const response = await fetch(`/api/meetings/comments/${commentId}`, {
+        method: 'DELETE',
+      })
+
+      if (response.ok) {
+        // 댓글 목록 새로고침
+        await fetchComments(meetingItemId)
+      } else {
+        alert('댓글 삭제에 실패했습니다')
+      }
+    } catch (error) {
+      console.error('Failed to delete comment:', error)
+      alert('댓글 삭제 중 오류가 발생했습니다')
+    }
+  }
+
   const handleDelete = async (id: number) => {
     if (!confirm('정말 삭제하시겠습니까?')) return
 
@@ -284,6 +380,53 @@ export default function MeetingsPage() {
         part
       )
     )
+  }
+
+  // 회의록 내용 하이라이트 함수 (회장님:, 답변: 등 자동 인식)
+  const highlightMeetingContent = (text: string | null) => {
+    if (!text) return null
+
+    // 먼저 검색어 하이라이트 적용
+    const searchHighlighted = highlightKeyword(text)
+
+    // 검색어가 있으면 검색어 하이라이트만 적용
+    if (searchKeyword.trim()) {
+      return searchHighlighted
+    }
+
+    // 하이라이트할 키워드 패턴 (회장님:, 답변:, 질문:, 지시사항:, 요청:, 회신: 등)
+    const highlightPatterns = [
+      '회장님:',
+      '사장님:',
+      '대표님:',
+      '답변:',
+      '질문:',
+      '지시사항:',
+      '요청:',
+      '회신:',
+      '참고:',
+      '공지:',
+      '알림:',
+      '보고:'
+    ]
+
+    // 패턴을 정규식으로 변환 (대소문자 구분 없이)
+    const pattern = highlightPatterns.map(p => p.replace(':', '\\s*:')).join('|')
+    const regex = new RegExp(`(${pattern})`, 'gi')
+
+    const parts = text.split(regex)
+
+    return parts.map((part, index) => {
+      // 패턴에 매치되면 노란 배경
+      if (regex.test(part)) {
+        return (
+          <span key={index} className="bg-yellow-100 font-semibold text-gray-900 px-1 rounded">
+            {part}
+          </span>
+        )
+      }
+      return part
+    })
   }
 
   const handleExportExcel = async () => {
@@ -653,7 +796,7 @@ export default function MeetingsPage() {
 
                     {/* Content */}
                     <p className={`text-gray-900 mb-3 ${item.is_done ? 'line-through text-gray-500' : ''}`}>
-                      {highlightKeyword(item.content)}
+                      {highlightMeetingContent(item.content)}
                     </p>
 
                     {/* Editable Fields */}
@@ -756,7 +899,7 @@ export default function MeetingsPage() {
                         {item.reply_text && (
                           <div className="text-sm">
                             <span className="font-semibold text-gray-700">답변:</span>{' '}
-                            <span className="text-gray-900">{highlightKeyword(item.reply_text)}</span>
+                            <span className="text-gray-900">{highlightMeetingContent(item.reply_text)}</span>
                           </div>
                         )}
                         {!item.assignee_name && !item.reply_text && (
@@ -791,6 +934,82 @@ export default function MeetingsPage() {
                       </>
                     )}
                   </div>
+                </div>
+
+                {/* 댓글 섹션 */}
+                <div className="mt-4 pt-4 border-t border-gray-200">
+                  {/* 댓글 토글 버튼 */}
+                  <button
+                    onClick={() => toggleComments(item.id)}
+                    className="text-sm text-gray-600 hover:text-[#95c11f] font-semibold flex items-center gap-2"
+                  >
+                    💬 댓글 {comments[item.id]?.length || 0}개
+                    <span className="text-xs">
+                      {showComments[item.id] ? '▲' : '▼'}
+                    </span>
+                  </button>
+
+                  {/* 댓글 목록 및 입력 */}
+                  {showComments[item.id] && (
+                    <div className="mt-3 space-y-3">
+                      {/* 댓글 목록 */}
+                      {comments[item.id]?.map((comment) => (
+                        <div
+                          key={comment.id}
+                          className="bg-gray-50 rounded-md p-3 border border-gray-200"
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-sm font-semibold text-gray-900">
+                                  {comment.user_name}
+                                </span>
+                                <span className="text-xs text-gray-500">
+                                  {new Date(comment.created_at).toLocaleString('ko-KR')}
+                                </span>
+                              </div>
+                              <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                                {highlightMeetingContent(comment.comment_text)}
+                              </p>
+                            </div>
+                            <button
+                              onClick={() => handleDeleteComment(comment.id, item.id)}
+                              className="text-xs text-red-600 hover:text-red-800 ml-2"
+                            >
+                              삭제
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+
+                      {/* 댓글 입력 */}
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          placeholder={`${currentUserName}(으)로 댓글 작성...`}
+                          value={newComment[item.id] || ''}
+                          onChange={(e) =>
+                            setNewComment((prev) => ({
+                              ...prev,
+                              [item.id]: e.target.value,
+                            }))
+                          }
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter') {
+                              handleAddComment(item.id)
+                            }
+                          }}
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#95c11f] text-sm"
+                        />
+                        <button
+                          onClick={() => handleAddComment(item.id)}
+                          className="px-4 py-2 bg-[#95c11f] text-white rounded-md hover:bg-[#7aa619] text-sm font-semibold"
+                        >
+                          등록
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Footer - Updated At */}

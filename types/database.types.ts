@@ -206,6 +206,32 @@ export interface Database {
           comment?: string | null
         }
       }
+      meeting_comments: {
+        Row: {
+          id: string
+          meeting_item_id: string
+          user_name: string
+          comment_text: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          meeting_item_id: string
+          user_name: string
+          comment_text: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          meeting_item_id?: string
+          user_name?: string
+          comment_text?: string
+          created_at?: string
+          updated_at?: string
+        }
+      }
     }
     Views: {
       [_ in never]: never
@@ -231,6 +257,10 @@ export type StageHistoryUpdate = Database['public']['Tables']['stage_history']['
 export type Supplier = Database['public']['Tables']['suppliers']['Row']
 export type SupplierInsert = Database['public']['Tables']['suppliers']['Insert']
 export type SupplierUpdate = Database['public']['Tables']['suppliers']['Update']
+
+export type MeetingComment = Database['public']['Tables']['meeting_comments']['Row']
+export type MeetingCommentInsert = Database['public']['Tables']['meeting_comments']['Insert']
+export type MeetingCommentUpdate = Database['public']['Tables']['meeting_comments']['Update']
 
 // Stage enum
 export enum Stage {
