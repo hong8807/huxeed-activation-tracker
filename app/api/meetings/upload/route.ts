@@ -11,6 +11,8 @@ interface ParsedRow {
   account_name: string | null;
   content: string;
   is_record: boolean;
+  assignee_name: string | null;
+  reply_text: string | null;
 }
 
 interface ErrorRow {
@@ -63,6 +65,8 @@ export async function POST(request: NextRequest) {
       const accountName = row.getCell(3).value?.toString().trim() || null;
       const content = row.getCell(4).value?.toString().trim() || '';
       const isRecordValue = row.getCell(5).value?.toString().trim() || '';
+      const assigneeName = row.getCell(6).value?.toString().trim() || null;
+      const replyText = row.getCell(7).value?.toString().trim() || null;
 
       // 기록 여부 파싱: "기록", "O", "o", "TRUE", "true" 등을 true로 인식
       const isRecord = ['기록', 'O', 'o', 'TRUE', 'true', 'Y', 'y', '1'].includes(isRecordValue);
@@ -117,7 +121,9 @@ export async function POST(request: NextRequest) {
         meeting_date: parsedDate,
         account_name: accountName,
         content: content,
-        is_record: isRecord
+        is_record: isRecord,
+        assignee_name: assigneeName,
+        reply_text: replyText
       });
     });
 
@@ -135,8 +141,8 @@ export async function POST(request: NextRequest) {
             account_name: row.account_name,
             content: row.content,
             is_record: row.is_record,
-            assignee_name: null,
-            reply_text: null,
+            assignee_name: row.assignee_name,
+            reply_text: row.reply_text,
             is_done: false
           }))
         );

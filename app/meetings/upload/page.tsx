@@ -142,6 +142,43 @@ export default function MeetingsUploadPage() {
                 <strong>내용</strong>: 실행이 필요한 회의 내용 (한 줄 액션 아이템으로 작성 권장)
               </div>
             </div>
+            <div className="flex gap-3">
+              <div className="flex-shrink-0 w-6 h-6 bg-[#95c11f] text-white rounded-full flex items-center justify-center font-bold text-xs">
+                5
+              </div>
+              <div>
+                <strong>기록여부</strong>: 단순 기록인 경우 "기록" 또는 "O" 입력 (선택사항, 기본값: 실행 필요)
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold text-xs">
+                6
+              </div>
+              <div>
+                <strong className="text-blue-600">담당자명</strong>: 실행 항목을 담당할 사람 이름 (선택사항, 예: 홍길동)
+                <div className="mt-1 text-xs text-blue-600">
+                  💡 엑셀에서 담당자명을 입력하면 업로드 시 자동 등록됩니다
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold text-xs">
+                7
+              </div>
+              <div>
+                <strong className="text-blue-600">답변</strong>: 담당자의 진행 상황이나 관련 내용 (선택사항)
+                <div className="mt-1 text-xs text-blue-600">
+                  💡 엑셀에서 답변을 미리 입력하면 업로드 시 함께 등록됩니다
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 추가 안내 */}
+          <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+            <p className="text-sm text-blue-800">
+              <strong>✨ 새로운 기능:</strong> 이제 엑셀에서 <strong>담당자명</strong>과 <strong>답변</strong>을 미리 작성하여 업로드할 수 있습니다!
+            </p>
           </div>
         </div>
 
