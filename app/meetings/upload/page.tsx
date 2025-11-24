@@ -55,12 +55,33 @@ export default function MeetingsUploadPage() {
     }
   }
 
-  const downloadTemplate = () => {
-    // 간단한 엑셀 템플릿 생성 (실제로는 서버에서 제공하거나 미리 만들어진 파일 다운로드)
-    const link = document.createElement('a')
-    link.href = '/회의실행항목_템플릿.xlsx' // public 폴더에 템플릿 파일 필요
-    link.download = '회의실행항목_템플릿.xlsx'
-    link.click()
+  const downloadTemplate = async () => {
+    try {
+      const response = await fetch('/api/meetings/download-template')
+
+      if (!response.ok) {
+        throw new Error('템플릿 다운로드 실패')
+      }
+
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+
+      // 파일명 추출 (Content-Disposition 헤더에서)
+      const contentDisposition = response.headers.get('Content-Disposition')
+      const filenameMatch = contentDisposition?.match(/filename\*?=['"]?(?:UTF-\d['"]*)?([^;\r\n"']*)['"]?;?/)
+      const filename = filenameMatch ? decodeURIComponent(filenameMatch[1]) : '회의실행항목_템플릿.xlsx'
+
+      link.download = filename
+      link.click()
+
+      // URL 해제
+      window.URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Template download error:', error)
+      alert('템플릿 다운로드 중 오류가 발생했습니다')
+    }
   }
 
   return (
