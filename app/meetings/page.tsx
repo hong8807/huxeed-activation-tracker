@@ -210,10 +210,41 @@ export default function MeetingsPage() {
         .sort()
 
       setUniqueAssignees(assignees)
+
+      // 모든 항목의 댓글 개수 가져오기
+      if (data.data && data.data.length > 0) {
+        await fetchAllCommentCounts(data.data)
+      }
     } catch (error) {
       console.error('Failed to fetch meeting items:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  // 모든 항목의 댓글 개수 가져오기
+  const fetchAllCommentCounts = async (items: MeetingItem[]) => {
+    try {
+      const counts: Record<number, number> = {}
+
+      await Promise.all(
+        items.map(async (item) => {
+          try {
+            const response = await fetch(`/api/meetings/comments?meeting_item_id=${item.id}&count_only=true`)
+            if (response.ok) {
+              const data = await response.json()
+              counts[item.id] = data.count || 0
+            }
+          } catch (error) {
+            console.error(`Failed to fetch comment count for item ${item.id}:`, error)
+            counts[item.id] = 0
+          }
+        })
+      )
+
+      setCommentCounts(counts)
+    } catch (error) {
+      console.error('Failed to fetch comment counts:', error)
     }
   }
 
@@ -319,6 +350,8 @@ export default function MeetingsPage() {
         setShowComments(prev => ({ ...prev, [meetingItemId]: true }))
         // 댓글 목록 새로고침
         await fetchComments(meetingItemId)
+        // 댓글 개수 업데이트 (+1)
+        setCommentCounts(prev => ({ ...prev, [meetingItemId]: (prev[meetingItemId] || 0) + 1 }))
       } else {
         console.error('Failed to create comment:', result)
         alert(`댓글 작성에 실패했습니다: ${result.details || result.error || '알 수 없는 오류'}`)
@@ -341,6 +374,8 @@ export default function MeetingsPage() {
       if (response.ok) {
         // 댓글 목록 새로고침
         await fetchComments(meetingItemId)
+        // 댓글 개수 업데이트 (-1)
+        setCommentCounts(prev => ({ ...prev, [meetingItemId]: Math.max(0, (prev[meetingItemId] || 0) - 1) }))
       } else {
         alert('댓글 삭제에 실패했습니다')
       }
@@ -949,7 +984,7 @@ export default function MeetingsPage() {
                     onClick={() => toggleComments(item.id)}
                     className="text-sm text-gray-600 hover:text-[#95c11f] font-semibold flex items-center gap-2"
                   >
-                    💬 댓글 {comments[item.id]?.length || 0}개
+                    💬 댓글 {commentCounts[item.id] || 0}개
                     <span className="text-xs">
                       {showComments[item.id] ? '▲' : '▼'}
                     </span>
