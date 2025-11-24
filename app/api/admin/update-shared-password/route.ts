@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createAdminClient } from '@/lib/supabase/server';
 import { sendPasswordChangeEmail } from '@/lib/email';
+import bcryptjs from 'bcryptjs';
 
 export async function POST(request: NextRequest) {
   try {
@@ -26,22 +27,33 @@ export async function POST(request: NextRequest) {
     }
 
     // 2. 요청 body 파싱
-    const { passwordHash, plainPassword } = await request.json();
+    const { newPassword } = await request.json();
 
-    if (!passwordHash || !plainPassword) {
+    if (!newPassword) {
       return NextResponse.json(
-        { error: '비밀번호 정보가 필요합니다' },
+        { error: '비밀번호가 필요합니다' },
         { status: 400 }
       );
     }
 
-    // 3. 관리자 권한 Supabase 클라이언트 생성 (Service Role Key 사용)
+    if (newPassword.length < 8) {
+      return NextResponse.json(
+        { error: '비밀번호는 최소 8자 이상이어야 합니다' },
+        { status: 400 }
+      );
+    }
+
+    // 3. 비밀번호 해싱 (서버에서 처리)
+    const passwordHash = await bcryptjs.hash(newPassword, 10);
+    console.log('🔐 [Admin API] Password hashed successfully');
+
+    // 4. 관리자 권한 Supabase 클라이언트 생성 (Service Role Key 사용)
     // RLS 정책을 우회하여 users 테이블을 직접 수정할 수 있습니다
     const supabase = await createAdminClient();
 
     console.log('🔐 [Admin API] Updating shared account password...');
 
-    // 4. 공용 계정 비밀번호 업데이트
+    // 5. 공용 계정 비밀번호 업데이트
     const { data, error } = await supabase
       .from('users')
       .update({
@@ -62,7 +74,7 @@ export async function POST(request: NextRequest) {
 
     console.log('✅ Password updated successfully:', data);
 
-    // 5. 비밀번호 변경 이력 기록 (is_notified: false)
+    // 6. 비밀번호 변경 이력 기록 (is_notified: false)
     const changedAt = new Date().toISOString();
     const changedBy = session.email || 'admin';
 
@@ -85,7 +97,7 @@ export async function POST(request: NextRequest) {
 
     console.log('✅ Password history recorded:', historyData?.id);
 
-    // 6. 메일 수신자 목록 조회
+    // 7. 메일 수신자 목록 조회
     const { data: subscribers, error: subscribersError } = await supabase
       .from('email_subscribers')
       .select('email, name')
@@ -111,7 +123,7 @@ export async function POST(request: NextRequest) {
 
     console.log(`📧 Sending emails to ${subscribers.length} subscribers...`);
 
-    // 7. 메일 발송
+    // 8. 메일 발송
     const formattedDate = new Date(changedAt).toLocaleString('ko-KR', {
       year: 'numeric',
       month: '2-digit',
@@ -127,7 +139,7 @@ export async function POST(request: NextRequest) {
           to: subscriber.email,
           changedBy,
           changedAt: formattedDate,
-          newPassword: plainPassword,
+          newPassword: newPassword, // 평문 비밀번호 전달
         });
 
         console.log(`✅ Email sent to ${subscriber.email}:`, info.messageId);
@@ -144,7 +156,7 @@ export async function POST(request: NextRequest) {
 
     console.log(`📊 Email sending results: ${successCount} succeeded, ${failedCount} failed`);
 
-    // 8. 메일 발송 성공 시 is_notified 업데이트
+    // 9. 메일 발송 성공 시 is_notified 업데이트
     if (successCount > 0 && historyData?.id) {
       const { error: updateError } = await supabase
         .from('password_history')

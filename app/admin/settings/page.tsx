@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import bcryptjs from 'bcryptjs';
 
 interface MenuPermissions {
   dashboard: boolean;
@@ -105,16 +104,12 @@ export default function AdminSettingsPage() {
     setIsUpdating(true);
 
     try {
-      // 1. bcrypt 해시 생성
-      const hash = await bcryptjs.hash(newPassword, 10);
-
-      // 2. 비밀번호 업데이트 (이력 기록 & 메일 발송 포함)
+      // 비밀번호 업데이트 (서버에서 해싱 & 이력 기록 & 메일 발송 포함)
       const updateResponse = await fetch('/api/admin/update-shared-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          passwordHash: hash,
-          plainPassword: newPassword, // 메일 발송용 평문 비밀번호
+          newPassword: newPassword, // 서버에서 해싱 처리
         }),
       });
 

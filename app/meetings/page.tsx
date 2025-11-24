@@ -67,6 +67,7 @@ export default function MeetingsPage() {
   })
   const [canDownload, setCanDownload] = useState<boolean>(false)
   const [comments, setComments] = useState<Record<number, MeetingComment[]>>({})
+  const [commentCounts, setCommentCounts] = useState<Record<number, number>>({})
   const [showComments, setShowComments] = useState<Record<number, boolean>>({})
   const [newComment, setNewComment] = useState<Record<number, string>>({})
   const [currentUserName, setCurrentUserName] = useState<string>('')
@@ -314,6 +315,8 @@ export default function MeetingsPage() {
       if (response.ok) {
         // 댓글 입력창 초기화
         setNewComment(prev => ({ ...prev, [meetingItemId]: '' }))
+        // 댓글 섹션 열기 (닫혀있었다면)
+        setShowComments(prev => ({ ...prev, [meetingItemId]: true }))
         // 댓글 목록 새로고침
         await fetchComments(meetingItemId)
       } else {

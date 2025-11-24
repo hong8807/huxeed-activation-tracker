@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
-// 댓글 목록 조회
+// 댓글 목록 조회 또는 댓글 개수 조회
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const meetingItemId = searchParams.get('meeting_item_id');
+    const countOnly = searchParams.get('count_only') === 'true';
 
     if (!meetingItemId) {
       return NextResponse.json(
@@ -16,6 +17,25 @@ export async function GET(request: NextRequest) {
 
     const supabase = await createClient();
 
+    // 개수만 조회
+    if (countOnly) {
+      const { count, error } = await supabase
+        .from('meeting_comments')
+        .select('*', { count: 'exact', head: true })
+        .eq('meeting_item_id', meetingItemId);
+
+      if (error) {
+        console.error('Failed to fetch comment count:', error);
+        return NextResponse.json(
+          { error: 'Failed to fetch comment count', details: error.message },
+          { status: 500 }
+        );
+      }
+
+      return NextResponse.json({ count: count || 0 }, { status: 200 });
+    }
+
+    // 전체 댓글 목록 조회
     const { data, error } = await supabase
       .from('meeting_comments')
       .select('*')
