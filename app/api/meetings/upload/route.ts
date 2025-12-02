@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import ExcelJS from 'exceljs';
+import { sendMeetingEmail } from '@/lib/email';
 
 // 허용된 회의 타입
-const ALLOWED_MEETING_TYPES = ['일간회의', '월간회의', '분기회의', '년마감회의'] as const;
+const ALLOWED_MEETING_TYPES = ['일간회의', '월간회의', '분기회의', '년마감회의', '외부회의'] as const;
 
 interface ParsedRow {
   meeting_type: string;
@@ -143,9 +144,11 @@ export async function POST(request: NextRequest) {
             is_record: row.is_record,
             assignee_name: row.assignee_name,
             reply_text: row.reply_text,
-            is_done: false
+            // 단순 기록은 자동으로 완료 처리 (액션 아이템이 아니므로)
+            is_done: row.is_record
           }))
-        );
+        )
+        .select();
 
       if (error) {
         console.error('DB Insert Error:', error);
@@ -156,6 +159,55 @@ export async function POST(request: NextRequest) {
       }
 
       insertedCount = validRows.length;
+
+      // 모든 회의록에 대해 이메일 발송
+      if (data && data.length > 0) {
+        // 활성화된 이메일 수신자 조회
+        const { data: subscribers } = await supabase
+          .from('email_subscribers')
+          .select('email, name')
+          .eq('is_active', true);
+
+        if (subscribers && subscribers.length > 0) {
+          // 회의 타입 + 날짜별로 그룹화
+          const meetingGroups = new Map<string, typeof data>();
+          for (const item of data) {
+            const key = `${item.meeting_type}_${item.meeting_date}`;
+            if (!meetingGroups.has(key)) {
+              meetingGroups.set(key, []);
+            }
+            meetingGroups.get(key)!.push(item);
+          }
+
+          // 각 그룹에 대해 이메일 발송
+          for (const [, meetings] of meetingGroups) {
+            const firstMeeting = meetings[0];
+            const meetingType = firstMeeting.meeting_type;
+            const meetingDate = firstMeeting.meeting_date;
+            const accountName = firstMeeting.account_name;
+            const itemCount = meetings.length;
+
+            const emailPromises = subscribers.map(async (subscriber) => {
+              try {
+                await sendMeetingEmail({
+                  to: subscriber.email,
+                  meetingType,
+                  meetingDate,
+                  accountName,
+                  itemCount,
+                });
+                console.log(`✅ ${meetingType} email sent to ${subscriber.email}`);
+                return { success: true, email: subscriber.email };
+              } catch (err) {
+                console.error(`❌ Error sending email to ${subscriber.email}:`, err);
+                return { success: false, email: subscriber.email };
+              }
+            });
+
+            await Promise.all(emailPromises);
+          }
+        }
+      }
     }
 
     return NextResponse.json({
