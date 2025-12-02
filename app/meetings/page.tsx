@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { PlusIcon, FunnelIcon, CheckIcon, XMarkIcon, ArrowDownTrayIcon, CalendarIcon, MagnifyingGlassIcon, PrinterIcon } from '@heroicons/react/24/outline'
+import { PlusIcon, FunnelIcon, CheckIcon, XMarkIcon, ArrowDownTrayIcon, CalendarIcon, MagnifyingGlassIcon, PrinterIcon, EnvelopeIcon } from '@heroicons/react/24/outline'
 
 interface MeetingItem {
   id: number
@@ -27,13 +27,14 @@ interface MeetingComment {
   updated_at: string
 }
 
-const MEETING_TYPES = ['일간회의', '월간회의', '분기회의', '년마감회의']
+const MEETING_TYPES = ['일간회의', '월간회의', '분기회의', '년마감회의', '외부회의']
 
 const MEETING_TYPE_COLORS: Record<string, string> = {
   '일간회의': 'bg-blue-100 text-blue-800 border-blue-200',
   '월간회의': 'bg-purple-100 text-purple-800 border-purple-200',
   '분기회의': 'bg-orange-100 text-orange-800 border-orange-200',
   '년마감회의': 'bg-red-100 text-red-800 border-red-200',
+  '외부회의': 'bg-green-100 text-green-800 border-green-200',
 }
 
 export default function MeetingsPage() {
@@ -42,6 +43,7 @@ export default function MeetingsPage() {
   const [loading, setLoading] = useState(true)
   const [selectedType, setSelectedType] = useState<string>('all')
   const [showCompleted, setShowCompleted] = useState(true)
+  const [showRecords, setShowRecords] = useState(true) // 단순 기록 필터
   const [dateFilter, setDateFilter] = useState<'all' | 'today' | 'week' | 'month'>('all')
   const [customStartDate, setCustomStartDate] = useState<string>('')
   const [customEndDate, setCustomEndDate] = useState<string>('')
@@ -73,6 +75,7 @@ export default function MeetingsPage() {
   const [currentUserName, setCurrentUserName] = useState<string>('')
   const [showPrintModal, setShowPrintModal] = useState<boolean>(false)
   const [showAllPrintModal, setShowAllPrintModal] = useState<boolean>(false)
+  const [sendingEmail, setSendingEmail] = useState<boolean>(false)
 
   // 데이터 로드
   useEffect(() => {
@@ -117,6 +120,11 @@ export default function MeetingsPage() {
     // 완료 여부 필터
     if (!showCompleted) {
       filtered = filtered.filter(item => !item.is_done)
+    }
+
+    // 단순 기록 필터
+    if (!showRecords) {
+      filtered = filtered.filter(item => !item.is_record)
     }
 
     // 날짜 필터 (한국 시간대 고려)
@@ -193,7 +201,7 @@ export default function MeetingsPage() {
     })
 
     setFilteredItems(filtered)
-  }, [items, selectedType, showCompleted, dateFilter, customStartDate, customEndDate, searchKeyword, selectedAssignee])
+  }, [items, selectedType, showCompleted, showRecords, dateFilter, customStartDate, customEndDate, searchKeyword, selectedAssignee])
 
   const fetchItems = async () => {
     try {
@@ -470,6 +478,40 @@ export default function MeetingsPage() {
     })
   }
 
+  // 이메일 발송 핸들러
+  const handleSendEmail = async () => {
+    // 오늘 날짜 (한국 시간 기준)
+    const today = new Date()
+    const koreaTime = new Date(today.getTime() + (9 * 60 * 60 * 1000))
+    const todayStr = koreaTime.toISOString().split('T')[0]
+
+    if (!confirm(`오늘(${todayStr}) 등록된 회의록에 대해 이메일을 발송하시겠습니까?`)) {
+      return
+    }
+
+    try {
+      setSendingEmail(true)
+      const response = await fetch('/api/meetings/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date: todayStr })
+      })
+
+      const result = await response.json()
+
+      if (response.ok) {
+        alert(`✅ 이메일 발송 완료!\n\n📅 날짜: ${result.date}\n📝 회의록: ${result.meetingCount}건\n📧 발송 성공: ${result.emailsSent}건\n❌ 발송 실패: ${result.emailsFailed}건`)
+      } else {
+        alert(`❌ 이메일 발송 실패\n\n${result.error}`)
+      }
+    } catch (error) {
+      console.error('Email send error:', error)
+      alert('이메일 발송 중 오류가 발생했습니다')
+    } finally {
+      setSendingEmail(false)
+    }
+  }
+
   const handleExportExcel = async () => {
     try {
       // 현재 필터 조건으로 쿼리 파라미터 생성
@@ -535,6 +577,23 @@ export default function MeetingsPage() {
               </p>
             </div>
             <div className="flex gap-2">
+              <button
+                onClick={handleSendEmail}
+                disabled={sendingEmail}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {sendingEmail ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    발송 중...
+                  </>
+                ) : (
+                  <>
+                    <EnvelopeIcon className="w-5 h-5" />
+                    이메일 발송
+                  </>
+                )}
+              </button>
               <button
                 onClick={() => setShowAllPrintModal(true)}
                 className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors font-semibold"
@@ -632,6 +691,15 @@ export default function MeetingsPage() {
                 className="w-4 h-4 text-[#95c11f] border-gray-300 rounded focus:ring-[#95c11f]"
               />
               <span className="text-sm text-gray-700">완료된 항목 표시</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showRecords}
+                onChange={(e) => setShowRecords(e.target.checked)}
+                className="w-4 h-4 text-[#95c11f] border-gray-300 rounded focus:ring-[#95c11f]"
+              />
+              <span className="text-sm text-gray-700">단순 기록 표시</span>
             </label>
           </div>
 
@@ -949,9 +1017,25 @@ export default function MeetingsPage() {
                       </div>
                     ) : (
                       <div className="space-y-2">
-                        <p className="text-sm text-gray-500 italic">
-                          📋 이 항목은 단순 기록입니다 (담당자/답변 불필요)
-                        </p>
+                        {/* 단순 기록이지만 담당자/답변이 있으면 표시 */}
+                        {item.assignee_name && (
+                          <div className="text-sm">
+                            <span className="font-semibold text-gray-700">담당자:</span>{' '}
+                            <span className="text-gray-900">{highlightKeyword(item.assignee_name)}</span>
+                          </div>
+                        )}
+                        {item.reply_text && (
+                          <div className="text-sm">
+                            <span className="font-semibold text-gray-700">답변:</span>{' '}
+                            <span className="text-gray-900">{highlightMeetingContent(item.reply_text)}</span>
+                          </div>
+                        )}
+                        {/* 담당자/답변이 없을 때만 안내 메시지 */}
+                        {!item.assignee_name && !item.reply_text && (
+                          <p className="text-sm text-gray-500 italic">
+                            📋 이 항목은 단순 기록입니다 (담당자/답변 불필요)
+                          </p>
+                        )}
                       </div>
                     )}
                   </div>
@@ -1153,13 +1237,13 @@ export default function MeetingsPage() {
 
                     {/* 내용 한 줄 */}
                     <div className="text-sm text-gray-900 mb-1">
-                      <strong className="text-gray-700">▪</strong> {item.content}
+                      <strong className="text-gray-700">▪</strong> {highlightMeetingContent(item.content)}
                     </div>
 
                     {/* 답변 (있는 경우만) */}
                     {item.reply_text && (
                       <div className="text-xs text-gray-600 ml-3">
-                        <strong>답변:</strong> {item.reply_text}
+                        {highlightMeetingContent(item.reply_text)}
                       </div>
                     )}
 
@@ -1264,7 +1348,7 @@ export default function MeetingsPage() {
                       className={`print-meeting-item border-l-4 ${
                         item.is_done ? 'border-green-500 bg-green-50' : 'border-[#95c11f] bg-gray-50'
                       } px-4 py-3 ${
-                        (index + 1) % 8 === 0 && index !== filteredItems.length - 1 ? 'print-page-break' : ''
+                        (index + 1) % 6 === 0 && index !== filteredItems.length - 1 ? 'print-page-break' : ''
                       }`}
                     >
                       {/* 한 줄 헤더 */}
@@ -1299,7 +1383,7 @@ export default function MeetingsPage() {
 
                       {/* 내용 */}
                       <div className={`text-sm mb-1 ${item.is_done ? 'text-gray-600' : 'text-gray-900'}`}>
-                        <strong className="text-gray-700">▪</strong> {item.content}
+                        <strong className="text-gray-700">▪</strong> {highlightMeetingContent(item.content)}
                       </div>
 
                       {/* 담당자 및 답변 (단순기록 아닌 경우만) */}
@@ -1312,7 +1396,7 @@ export default function MeetingsPage() {
                           )}
                           {item.reply_text && (
                             <div className="text-xs text-gray-600 ml-3">
-                              <strong>답변:</strong> {item.reply_text}
+                              {highlightMeetingContent(item.reply_text)}
                             </div>
                           )}
                         </>
@@ -1423,11 +1507,22 @@ export default function MeetingsPage() {
             margin-bottom: 0 !important;
           }
 
-          /* 배경색 제거 */
+          /* 배경색 제거 (하이라이트는 유지) */
           .print-meeting-item,
           .print-meeting-item.bg-gray-50,
           .print-meeting-item.bg-green-50 {
             background: white !important;
+          }
+
+          /* 하이라이트 배경색 유지 (회장님:, 답변:, 보고: 등) */
+          .print-meeting-item .bg-yellow-100 {
+            background: #fef3c7 !important; /* yellow-100 */
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            color: #1f2937 !important; /* gray-900 */
+            font-weight: 600 !important;
+            padding: 0 1mm !important;
+            border-radius: 1mm !important;
           }
 
           /* 텍스트 크기 조정 */
