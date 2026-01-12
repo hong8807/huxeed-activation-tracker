@@ -163,14 +163,22 @@ export async function POST(request: NextRequest) {
         rowData.curr_tariff_rate = (row.getCell(12).value as number) || 0  // v2.10: 현재매입 관세율
         rowData.curr_additional_cost_rate = (row.getCell(13).value as number) || 0  // v2.10: 현재매입 부대비용율
 
-        rowData.our_currency = row.getCell(16).value?.toString() || null
-        rowData.our_unit_price_foreign = row.getCell(17).value as number
-        rowData.our_fx_rate_input = row.getCell(18).value as number
+        // v2.13: 우리예상 필드 - 빈 셀 처리 (현재매입과 동일하게)
+        const ourCurrencyValue = row.getCell(16).value
+        const ourCurrencyStr = ourCurrencyValue?.toString().trim()
+        rowData.our_currency = (ourCurrencyStr && ourCurrencyStr !== 'null') ? ourCurrencyStr : null
+
+        const ourPriceForeign = row.getCell(17).value
+        rowData.our_unit_price_foreign = (typeof ourPriceForeign === 'number' && ourPriceForeign > 0) ? ourPriceForeign : null
+
+        const ourFxRate = row.getCell(18).value
+        rowData.our_fx_rate_input = (typeof ourFxRate === 'number' && ourFxRate > 0) ? ourFxRate : null
+
         rowData.our_tariff_rate = (row.getCell(19).value as number) || 0  // v2.10: 우리예상 관세율
         rowData.our_additional_cost_rate = (row.getCell(20).value as number) || 0  // v2.10: 우리예상 부대비용율
         rowData.note = row.getCell(26).value?.toString() || null
 
-        // 필수 필드 검증
+        // ===== 필수 필드 검증 (거래처명, 품목명만 필수) =====
         if (!rowData.account_name) {
           rowErrors.push('거래처명이 누락되었습니다')
           validationErrors.push({ row: rowNumber, field: 'account_name', message: '거래처명이 누락되었습니다' })
@@ -179,16 +187,20 @@ export async function POST(request: NextRequest) {
           rowErrors.push('품목명이 누락되었습니다')
           validationErrors.push({ row: rowNumber, field: 'product_name', message: '품목명이 누락되었습니다' })
         }
+
+        // ===== 선택 필드 기본값 처리 =====
+        // 수량이 없으면 0으로 설정 (나중에 시스템에서 수정 가능)
         if (!rowData.est_qty_kg || rowData.est_qty_kg <= 0) {
-          rowErrors.push('수량이 유효하지 않습니다')
-          validationErrors.push({ row: rowNumber, field: 'est_qty_kg', message: '수량이 유효하지 않습니다' })
-        }
-        if (!rowData.owner_name) {
-          rowErrors.push('담당자명이 누락되었습니다')
-          validationErrors.push({ row: rowNumber, field: 'owner_name', message: '담당자명이 누락되었습니다' })
+          rowData.est_qty_kg = 0
         }
 
-        // v2.11: 현재 매입가는 선택 입력 (통화, 단가, 환율이 모두 있어야 유효)
+        // 세그먼트 검증 (값이 있을 때만)
+        if (rowData.segment && !['S', 'P', '일반'].includes(rowData.segment)) {
+          rowErrors.push('세그먼트는 S, P, 일반 중 하나여야 합니다')
+          validationErrors.push({ row: rowNumber, field: 'segment', message: '세그먼트는 S, P, 일반 중 하나여야 합니다' })
+        }
+
+        // ===== 현재 매입가 처리 (선택 입력) =====
         const hasCurrentPrice = !!(
           rowData.curr_currency &&
           rowData.curr_unit_price_foreign !== null &&
@@ -197,65 +209,75 @@ export async function POST(request: NextRequest) {
           rowData.curr_fx_rate_input > 0
         )
 
-        // 부분 입력 검증: 하나라도 값이 있으면 검증 (null과 undefined는 둘 다 "비어있음"으로 처리)
+        // 부분 입력 검증: 하나라도 값이 있으면 나머지도 입력 필요
         const hasAnyCurrPrice = !!(
           rowData.curr_currency ||
-          (rowData.curr_unit_price_foreign !== null && rowData.curr_unit_price_foreign !== undefined) ||
-          (rowData.curr_fx_rate_input !== null && rowData.curr_fx_rate_input !== undefined)
+          (rowData.curr_unit_price_foreign !== null && rowData.curr_unit_price_foreign !== undefined && rowData.curr_unit_price_foreign > 0) ||
+          (rowData.curr_fx_rate_input !== null && rowData.curr_fx_rate_input !== undefined && rowData.curr_fx_rate_input > 0)
         )
 
-        if (hasAnyCurrPrice) {
+        if (hasAnyCurrPrice && !hasCurrentPrice) {
           // 현재 매입가 필드 중 일부만 입력된 경우 검증
           if (!rowData.curr_currency) {
-            rowErrors.push('현재매입 통화가 누락되었습니다')
+            rowErrors.push('현재매입 통화가 누락되었습니다 (전부 입력하거나 전부 비워두세요)')
             validationErrors.push({ row: rowNumber, field: 'curr_currency', message: '현재매입 통화가 누락되었습니다' })
           }
           if (rowData.curr_unit_price_foreign === null || rowData.curr_unit_price_foreign === undefined || rowData.curr_unit_price_foreign <= 0) {
-            rowErrors.push('현재매입 단가가 유효하지 않습니다')
+            rowErrors.push('현재매입 단가가 유효하지 않습니다 (전부 입력하거나 전부 비워두세요)')
             validationErrors.push({ row: rowNumber, field: 'curr_unit_price_foreign', message: '현재매입 단가가 유효하지 않습니다' })
           }
           if (rowData.curr_currency !== 'KRW' && (rowData.curr_fx_rate_input === null || rowData.curr_fx_rate_input === undefined || rowData.curr_fx_rate_input <= 0)) {
-            rowErrors.push('현재매입 환율이 누락되었습니다')
+            rowErrors.push('현재매입 환율이 누락되었습니다 (전부 입력하거나 전부 비워두세요)')
             validationErrors.push({ row: rowNumber, field: 'curr_fx_rate_input', message: '현재매입 환율이 누락되었습니다' })
           }
         }
 
-        // 우리예상 판매가는 필수
-        if (!rowData.our_currency) {
-          rowErrors.push('우리예상 통화가 누락되었습니다')
-          validationErrors.push({ row: rowNumber, field: 'our_currency', message: '우리예상 통화가 누락되었습니다' })
+        // ===== 우리예상 판매가 처리 (선택 입력) =====
+        const hasOurPrice = !!(
+          rowData.our_currency &&
+          rowData.our_unit_price_foreign !== null &&
+          rowData.our_unit_price_foreign > 0
+        )
+
+        // 부분 입력 검증
+        const hasAnyOurPrice = !!(
+          rowData.our_currency ||
+          (rowData.our_unit_price_foreign !== null && rowData.our_unit_price_foreign !== undefined && rowData.our_unit_price_foreign > 0) ||
+          (rowData.our_fx_rate_input !== null && rowData.our_fx_rate_input !== undefined && rowData.our_fx_rate_input > 0)
+        )
+
+        if (hasAnyOurPrice && !hasOurPrice) {
+          if (!rowData.our_currency) {
+            rowErrors.push('우리예상 통화가 누락되었습니다 (전부 입력하거나 전부 비워두세요)')
+            validationErrors.push({ row: rowNumber, field: 'our_currency', message: '우리예상 통화가 누락되었습니다' })
+          }
+          if (!rowData.our_unit_price_foreign || rowData.our_unit_price_foreign <= 0) {
+            rowErrors.push('우리예상 단가가 유효하지 않습니다 (전부 입력하거나 전부 비워두세요)')
+            validationErrors.push({ row: rowNumber, field: 'our_unit_price_foreign', message: '우리예상 단가가 유효하지 않습니다' })
+          }
         }
-        if (!rowData.our_unit_price_foreign || rowData.our_unit_price_foreign <= 0) {
-          rowErrors.push('우리예상 단가가 유효하지 않습니다')
-          validationErrors.push({ row: rowNumber, field: 'our_unit_price_foreign', message: '우리예상 단가가 유효하지 않습니다' })
-        }
-        if (rowData.our_currency !== 'KRW' && (!rowData.our_fx_rate_input || rowData.our_fx_rate_input <= 0)) {
+
+        // 우리예상 환율 검증 (통화와 단가가 있을 때만)
+        if (hasOurPrice && rowData.our_currency !== 'KRW' && (!rowData.our_fx_rate_input || rowData.our_fx_rate_input <= 0)) {
           rowErrors.push('우리예상 환율이 누락되었습니다')
           validationErrors.push({ row: rowNumber, field: 'our_fx_rate_input', message: '우리예상 환율이 누락되었습니다' })
         }
 
-        // 세그먼트 검증
-        if (rowData.segment && !['S', 'P', '일반'].includes(rowData.segment)) {
-          rowErrors.push('세그먼트는 S, P, 일반 중 하나여야 합니다')
-          validationErrors.push({ row: rowNumber, field: 'segment', message: '세그먼트는 S, P, 일반 중 하나여야 합니다' })
-        }
-
-        // KRW인 경우 환율은 1로 설정
+        // ===== KRW인 경우 환율 자동 설정 =====
         if (hasCurrentPrice && rowData.curr_currency === 'KRW') {
           rowData.curr_fx_rate_input = 1
         }
-        if (rowData.our_currency === 'KRW') {
+        if (hasOurPrice && rowData.our_currency === 'KRW') {
           rowData.our_fx_rate_input = 1
         }
 
-        // 서버 사이드 계산 (v2.11: 현재 매입가 선택 입력 처리)
+        // ===== 서버 사이드 계산 =====
+        // 현재 매입가 계산
         if (hasCurrentPrice) {
-          // 현재매입 단가 = 외화단가 × 환율 × (1 + 관세율/100 + 부대비용율/100)
           rowData.curr_unit_price_krw = rowData.curr_unit_price_foreign * rowData.curr_fx_rate_input *
             (1 + (rowData.curr_tariff_rate || 0) / 100 + (rowData.curr_additional_cost_rate || 0) / 100)
           rowData.curr_total_krw = rowData.curr_unit_price_krw * rowData.est_qty_kg
         } else {
-          // 현재 매입가 정보 없으면 null 처리
           rowData.curr_currency = null
           rowData.curr_unit_price_foreign = null
           rowData.curr_fx_rate_input = null
@@ -265,20 +287,29 @@ export async function POST(request: NextRequest) {
           rowData.curr_total_krw = null
         }
 
-        // 우리예상 단가 = 외화단가 × 환율 × (1 + 관세율/100 + 부대비용율/100)
-        rowData.our_unit_price_krw = rowData.our_unit_price_foreign * rowData.our_fx_rate_input *
-          (1 + (rowData.our_tariff_rate || 0) / 100 + (rowData.our_additional_cost_rate || 0) / 100)
-        rowData.our_est_revenue_krw = rowData.our_unit_price_krw * rowData.est_qty_kg
+        // 우리예상 판매가 계산
+        if (hasOurPrice) {
+          rowData.our_unit_price_krw = rowData.our_unit_price_foreign * rowData.our_fx_rate_input *
+            (1 + (rowData.our_tariff_rate || 0) / 100 + (rowData.our_additional_cost_rate || 0) / 100)
+          rowData.our_est_revenue_krw = rowData.our_unit_price_krw * rowData.est_qty_kg
+        } else {
+          rowData.our_currency = null
+          rowData.our_unit_price_foreign = null
+          rowData.our_fx_rate_input = null
+          rowData.our_tariff_rate = null
+          rowData.our_additional_cost_rate = null
+          rowData.our_unit_price_krw = null
+          rowData.our_est_revenue_krw = null
+        }
 
-        // 절감 계산 (현재 매입가 정보 있을 때만)
-        if (hasCurrentPrice) {
+        // 절감 계산 (현재 매입가와 우리예상 둘 다 있을 때만)
+        if (hasCurrentPrice && hasOurPrice) {
           rowData.saving_per_kg = rowData.curr_unit_price_krw - rowData.our_unit_price_krw
           rowData.total_saving_krw = rowData.saving_per_kg * rowData.est_qty_kg
           rowData.saving_rate = rowData.curr_unit_price_krw !== 0
             ? rowData.saving_per_kg / rowData.curr_unit_price_krw
             : 0
         } else {
-          // 현재 매입가 정보 없으면 절감 필드 null
           rowData.saving_per_kg = null
           rowData.total_saving_krw = null
           rowData.saving_rate = null
