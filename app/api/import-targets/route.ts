@@ -99,9 +99,16 @@ export async function POST(request: NextRequest) {
       rowData.curr_tariff_rate = (row.getCell(12).value as number) || 0  // v2.10: 현재매입 관세율
       rowData.curr_additional_cost_rate = (row.getCell(13).value as number) || 0  // v2.10: 현재매입 부대비용율
 
-      rowData.our_currency = row.getCell(16).value?.toString() || null
-      rowData.our_unit_price_foreign = row.getCell(17).value as number
-      rowData.our_fx_rate_input = row.getCell(18).value as number
+      // v2.13: 우리예상 필드 - 빈 셀 처리 (현재매입과 동일하게)
+      const ourCurrencyValue = row.getCell(16).value
+      const ourCurrencyStr = ourCurrencyValue?.toString().trim()
+      rowData.our_currency = (ourCurrencyStr && ourCurrencyStr !== 'null') ? ourCurrencyStr : null
+
+      const ourPriceForeign = row.getCell(17).value
+      rowData.our_unit_price_foreign = (typeof ourPriceForeign === 'number' && ourPriceForeign > 0) ? ourPriceForeign : null
+
+      const ourFxRate = row.getCell(18).value
+      rowData.our_fx_rate_input = (typeof ourFxRate === 'number' && ourFxRate > 0) ? ourFxRate : null
       rowData.our_tariff_rate = (row.getCell(19).value as number) || 0  // v2.10: 우리예상 관세율
       rowData.our_additional_cost_rate = (row.getCell(20).value as number) || 0  // v2.10: 우리예상 부대비용율
       rowData.note = row.getCell(26).value?.toString() || null
