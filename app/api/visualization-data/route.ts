@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { Target, Stage, STAGE_LABELS } from '@/types/database.types'
 import { STAGE_ORDER } from '@/utils/constants'
+import { normalizeProductName } from '@/utils/format'
 
 export async function GET() {
   try {
@@ -106,23 +107,24 @@ export async function GET() {
       sourcingRelatedStages.includes(t.current_stage || '')
     ) || []
 
-    // Group by product_name to avoid duplicates
+    // Group by normalized product_name to avoid case duplicates
+    // Use normalized name as key, but keep original name for display
     const productMap = new Map<string, Target>()
     sourcingTargets.forEach(target => {
-      const productName = target.product_name || 'Unknown'
-      if (!productMap.has(productName)) {
-        productMap.set(productName, target)
+      const normalizedName = normalizeProductName(target.product_name)
+      if (!productMap.has(normalizedName)) {
+        productMap.set(normalizedName, target)
       }
     })
 
     // Get unique supplier counts for each unique product with DMF and linkage status
     const sourcingSupplierStatus = await Promise.all(
       Array.from(productMap.values()).map(async (target) => {
-        // Get suppliers with full information
+        // Get suppliers with full information (case-insensitive match)
         const { data: suppliers } = await supabase
           .from('suppliers')
           .select('supplier_name, dmf_registered, linkage_status')
-          .eq('product_name', target.product_name)
+          .ilike('product_name', target.product_name || '')
 
         // Deduplicate by supplier_name (keep first occurrence)
         const supplierMap = new Map<string, { dmf_registered: boolean; linkage_status: string }>()

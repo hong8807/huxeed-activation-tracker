@@ -514,15 +514,16 @@ ${innerContent}
                 {filteredData?.sourcingSupplierStatus && filteredData.sourcingSupplierStatus.length > 0 ? (
                   <>
                     {/* Table Header */}
-                    <div className="grid grid-cols-12 gap-2 pb-2 border-b border-gray-200 text-xs text-gray-500 font-medium">
-                      <div className="col-span-4">품목명</div>
+                    <div className="grid grid-cols-12 gap-2 pb-2 border-b border-gray-200 text-xs text-gray-500 font-medium sticky top-0 bg-white">
+                      <div className="col-span-4">품목명 ({filteredData.sourcingSupplierStatus.length}개)</div>
                       <div className="col-span-3 text-center">제조원 등록</div>
                       <div className="col-span-3 text-center">DMF 등록현황</div>
                       <div className="col-span-2 text-center">연계심사 완료</div>
                     </div>
 
-                    {/* Table Rows */}
-                    {filteredData.sourcingSupplierStatus.slice(0, 8).map((item) => {
+                    {/* Table Rows - Scrollable */}
+                    <div className="max-h-[400px] overflow-y-auto">
+                    {filteredData.sourcingSupplierStatus.map((item) => {
                       return (
                         <div key={item.id} className="grid grid-cols-12 gap-2 items-center py-2 text-sm hover:bg-gray-50 rounded">
                           <div className="col-span-4 truncate font-medium text-gray-800" title={item.productName}>
@@ -560,6 +561,7 @@ ${innerContent}
                         </div>
                       )
                     })}
+                    </div>
                   </>
                 ) : (
                   <div className="text-center text-gray-400 py-8">
