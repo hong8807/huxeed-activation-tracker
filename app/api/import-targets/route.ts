@@ -272,39 +272,55 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Upsert 로직 (거래처 + 품목 기준)
+    // ===== 배치 처리 최적화 (v2.14) =====
+    // 기존: 각 행마다 SELECT + UPDATE/INSERT = O(2n) 쿼리
+    // 개선: 단일 SELECT + 배치 INSERT + 병렬 UPDATE = O(3) 쿼리
     let updated = 0
     let created = 0
 
-    console.log(`📊 Processing ${rowsToImport.length} rows for upsert...`)
+    console.log(`📊 [배치 처리] ${rowsToImport.length}개 행 처리 시작...`)
+    const startTime = Date.now()
+
+    // Step 1: 모든 기존 레코드를 단일 쿼리로 조회
+    const uniqueKeys = rowsToImport.map(row => `${row.account_name}|||${row.product_name}`)
+    const accountNames = [...new Set(rowsToImport.map(row => row.account_name))]
+
+    console.log(`   🔍 기존 레코드 조회 중... (거래처 ${accountNames.length}개)`)
+
+    const { data: existingRecords, error: selectError } = await supabase
+      .from('targets')
+      .select('id, account_name, product_name')
+      .in('account_name', accountNames)
+
+    if (selectError) {
+      console.error('❌ 배치 조회 실패:', selectError)
+      return NextResponse.json(
+        { error: '기존 데이터 조회 실패', details: selectError.message },
+        { status: 500 }
+      )
+    }
+
+    // Step 2: 빠른 조회를 위한 Map 생성 (O(1) lookup)
+    const existingMap = new Map<string, string>()
+    for (const record of existingRecords || []) {
+      const key = `${record.account_name}|||${record.product_name}`
+      existingMap.set(key, record.id)
+    }
+    console.log(`   📋 기존 레코드 ${existingMap.size}개 발견`)
+
+    // Step 3: 신규 생성 vs 업데이트 분리
+    const toInsert: any[] = []
+    const toUpdate: { id: string; data: any }[] = []
 
     for (const rowData of rowsToImport) {
-      // 기존 데이터 확인 (error 처리 포함)
-      const { data: existing, error: selectError } = await supabase
-        .from('targets')
-        .select('id')
-        .eq('account_name', rowData.account_name)
-        .eq('product_name', rowData.product_name)
-        .maybeSingle()  // single() 대신 maybeSingle() 사용
+      const key = `${rowData.account_name}|||${rowData.product_name}`
+      const existingId = existingMap.get(key)
 
-      console.log(`🔍 Checking: ${rowData.account_name} - ${rowData.product_name}`)
-      console.log(`   Existing ID: ${existing?.id || 'none'}`)
-
-      if (selectError) {
-        console.error('❌ Select error:', selectError)
-        errors.push({
-          row: 0,
-          message: `${rowData.account_name} - ${rowData.product_name} 조회 실패: ${selectError.message}`,
-        })
-        continue
-      }
-
-      if (existing) {
-        // 업데이트
-        console.log(`   ⬆️ Updating existing record...`)
-        const { error } = await supabase
-          .from('targets')
-          .update({
+      if (existingId) {
+        // 업데이트 대상
+        toUpdate.push({
+          id: existingId,
+          data: {
             year: rowData.year,
             est_qty_kg: rowData.est_qty_kg,
             owner_name: rowData.owner_name,
@@ -313,15 +329,15 @@ export async function POST(request: NextRequest) {
             curr_currency: rowData.curr_currency,
             curr_unit_price_foreign: rowData.curr_unit_price_foreign,
             curr_fx_rate_input: rowData.curr_fx_rate_input,
-            curr_tariff_rate: rowData.curr_tariff_rate,  // v2.10
-            curr_additional_cost_rate: rowData.curr_additional_cost_rate,  // v2.10
+            curr_tariff_rate: rowData.curr_tariff_rate,
+            curr_additional_cost_rate: rowData.curr_additional_cost_rate,
             curr_unit_price_krw: rowData.curr_unit_price_krw,
             curr_total_krw: rowData.curr_total_krw,
             our_currency: rowData.our_currency,
             our_unit_price_foreign: rowData.our_unit_price_foreign,
             our_fx_rate_input: rowData.our_fx_rate_input,
-            our_tariff_rate: rowData.our_tariff_rate,  // v2.10
-            our_additional_cost_rate: rowData.our_additional_cost_rate,  // v2.10
+            our_tariff_rate: rowData.our_tariff_rate,
+            our_additional_cost_rate: rowData.our_additional_cost_rate,
             our_unit_price_krw: rowData.our_unit_price_krw,
             our_est_revenue_krw: rowData.our_est_revenue_krw,
             saving_per_kg: rowData.saving_per_kg,
@@ -329,66 +345,97 @@ export async function POST(request: NextRequest) {
             saving_rate: rowData.saving_rate,
             note: rowData.note,
             updated_at: new Date().toISOString(),
-          })
-          .eq('id', existing.id)
-
-        if (error) {
-          console.error('❌ Update error:', error)
-          errors.push({
-            row: 0,
-            message: `${rowData.account_name} - ${rowData.product_name} 업데이트 실패: ${error.message}`,
-          })
-        } else {
-          console.log(`   ✅ Updated successfully`)
-          updated++
-        }
+          }
+        })
       } else {
-        // 신규 생성
-        console.log(`   ➕ Creating new record...`)
-        const { error } = await supabase
-          .from('targets')
-          .insert({
-            year: rowData.year,
-            account_name: rowData.account_name,
-            product_name: rowData.product_name,
-            est_qty_kg: rowData.est_qty_kg,
-            owner_name: rowData.owner_name,
-            sales_2025_krw: rowData.sales_2025_krw,
-            segment: rowData.segment,
-            curr_currency: rowData.curr_currency,
-            curr_unit_price_foreign: rowData.curr_unit_price_foreign,
-            curr_fx_rate_input: rowData.curr_fx_rate_input,
-            curr_tariff_rate: rowData.curr_tariff_rate,  // v2.10
-            curr_additional_cost_rate: rowData.curr_additional_cost_rate,  // v2.10
-            curr_unit_price_krw: rowData.curr_unit_price_krw,
-            curr_total_krw: rowData.curr_total_krw,
-            our_currency: rowData.our_currency,
-            our_unit_price_foreign: rowData.our_unit_price_foreign,
-            our_fx_rate_input: rowData.our_fx_rate_input,
-            our_tariff_rate: rowData.our_tariff_rate,  // v2.10
-            our_additional_cost_rate: rowData.our_additional_cost_rate,  // v2.10
-            our_unit_price_krw: rowData.our_unit_price_krw,
-            our_est_revenue_krw: rowData.our_est_revenue_krw,
-            saving_per_kg: rowData.saving_per_kg,
-            total_saving_krw: rowData.total_saving_krw,
-            saving_rate: rowData.saving_rate,
-            current_stage: rowData.current_stage,
-            stage_updated_at: rowData.stage_updated_at,
-            stage_progress_rate: rowData.stage_progress_rate,
-            note: rowData.note,
-          })
-
-        if (error) {
-          console.error('Insert error:', error)
-          errors.push({
-            row: 0,
-            message: `${rowData.account_name} - ${rowData.product_name} 생성 실패`,
-          })
-        } else {
-          created++
-        }
+        // 신규 생성 대상
+        toInsert.push({
+          year: rowData.year,
+          account_name: rowData.account_name,
+          product_name: rowData.product_name,
+          est_qty_kg: rowData.est_qty_kg,
+          owner_name: rowData.owner_name,
+          sales_2025_krw: rowData.sales_2025_krw,
+          segment: rowData.segment,
+          curr_currency: rowData.curr_currency,
+          curr_unit_price_foreign: rowData.curr_unit_price_foreign,
+          curr_fx_rate_input: rowData.curr_fx_rate_input,
+          curr_tariff_rate: rowData.curr_tariff_rate,
+          curr_additional_cost_rate: rowData.curr_additional_cost_rate,
+          curr_unit_price_krw: rowData.curr_unit_price_krw,
+          curr_total_krw: rowData.curr_total_krw,
+          our_currency: rowData.our_currency,
+          our_unit_price_foreign: rowData.our_unit_price_foreign,
+          our_fx_rate_input: rowData.our_fx_rate_input,
+          our_tariff_rate: rowData.our_tariff_rate,
+          our_additional_cost_rate: rowData.our_additional_cost_rate,
+          our_unit_price_krw: rowData.our_unit_price_krw,
+          our_est_revenue_krw: rowData.our_est_revenue_krw,
+          saving_per_kg: rowData.saving_per_kg,
+          total_saving_krw: rowData.total_saving_krw,
+          saving_rate: rowData.saving_rate,
+          current_stage: rowData.current_stage,
+          stage_updated_at: rowData.stage_updated_at,
+          stage_progress_rate: rowData.stage_progress_rate,
+          note: rowData.note,
+        })
       }
     }
+
+    console.log(`   ➕ 신규 생성: ${toInsert.length}개, ⬆️ 업데이트: ${toUpdate.length}개`)
+
+    // Step 4: 배치 INSERT (단일 쿼리)
+    if (toInsert.length > 0) {
+      console.log(`   📥 배치 INSERT 실행 중...`)
+      const { error: insertError } = await supabase
+        .from('targets')
+        .insert(toInsert)
+
+      if (insertError) {
+        console.error('❌ 배치 INSERT 실패:', insertError)
+        errors.push({
+          row: 0,
+          message: `배치 INSERT 실패: ${insertError.message}`,
+        })
+      } else {
+        created = toInsert.length
+        console.log(`   ✅ ${created}개 레코드 생성 완료`)
+      }
+    }
+
+    // Step 5: 병렬 UPDATE (Promise.all로 동시 실행)
+    if (toUpdate.length > 0) {
+      console.log(`   📤 병렬 UPDATE 실행 중... (${toUpdate.length}개)`)
+
+      // 동시 실행 제한 (10개씩 청크로 처리하여 DB 부하 방지)
+      const CHUNK_SIZE = 10
+      for (let i = 0; i < toUpdate.length; i += CHUNK_SIZE) {
+        const chunk = toUpdate.slice(i, i + CHUNK_SIZE)
+        const updatePromises = chunk.map(({ id, data }) =>
+          supabase
+            .from('targets')
+            .update(data)
+            .eq('id', id)
+            .then(({ error }) => {
+              if (error) {
+                errors.push({
+                  row: 0,
+                  message: `ID ${id} 업데이트 실패: ${error.message}`,
+                })
+                return false
+              }
+              return true
+            })
+        )
+
+        const results = await Promise.all(updatePromises)
+        updated += results.filter(Boolean).length
+      }
+      console.log(`   ✅ ${updated}개 레코드 업데이트 완료`)
+    }
+
+    const elapsed = Date.now() - startTime
+    console.log(`📊 [배치 처리 완료] ${elapsed}ms 소요 (신규: ${created}, 업데이트: ${updated})`)
 
     const imported = updated + created
 

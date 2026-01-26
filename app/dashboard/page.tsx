@@ -1,103 +1,38 @@
-import { createClient } from '@/lib/supabase/server'
-import { formatKRW, formatPercent } from '@/utils/format'
+import { formatPercent } from '@/utils/format'
 import StrategyCard from '@/components/dashboard/StrategyCard'
 import KPICard from '@/components/dashboard/KPICard'
 import Link from 'next/link'
+import { getTargets, getDashboardKPIs, getStrategyData } from '@/lib/server-data'
 
 // 페이지 캐싱 설정 (30초마다 재검증)
 export const revalidate = 30
 
 export default async function DashboardPage() {
-  const supabase = await createClient()
-
-  // Fetch all targets (sorted by TARGET 매출액 descending)
-  const { data: targets, error } = await supabase
-    .from('targets')
-    .select('*')
-    .order('our_est_revenue_krw', { ascending: false })
+  // React.cache를 사용한 데이터 조회 (중복 요청 자동 제거)
+  const [targets, kpis, strategyData] = await Promise.all([
+    getTargets(),
+    getDashboardKPIs(),
+    getStrategyData(),
+  ])
 
   // Debug logging
-  console.log('🔍 Dashboard Debug:')
-  console.log('  Error:', error)
+  console.log('🔍 Dashboard Debug (React.cache):')
   console.log('  Data count:', targets?.length || 0)
-  console.log('  First item:', targets?.[0])
 
-  if (error) {
-    console.error('❌ Error fetching targets:', error)
-  }
-
-  // Calculate KPIs
-  const totalTargets = targets?.length || 0
-  const completedTargets = targets?.filter(t => t.current_stage === 'WON').length || 0
-  // stage_progress_rate는 10, 20... 형태로 저장되므로 100으로 나누어서 0-1 범위로 변환
-  const avgProgress = (targets?.reduce((sum, t) => sum + (t.stage_progress_rate || 0), 0) / (totalTargets || 1) || 0) / 100
-
-  // Target매출액 (모든 품목의 예상매출액 합)
-  const targetRevenue = targets?.reduce((sum, t) => sum + (t.our_est_revenue_krw || 0), 0) || 0
-
-  // 예상 신규 매출액 (WON 단계 품목의 예상매출액 합)
-  const achievedRevenue = targets?.filter(t => t.current_stage === 'WON')
-    .reduce((sum, t) => sum + (t.our_est_revenue_krw || 0), 0) || 0
-
-  // 전략달성율 (%)
-  const achievementRate = targetRevenue > 0 ? (achievedRevenue / targetRevenue) * 100 : 0
+  const {
+    totalTargets,
+    completedTargets,
+    avgProgress,
+    targetRevenue,
+    achievedRevenue,
+    achievementRate,
+  } = kpis
 
   // 백만원 단위 포맷 함수
   const formatMillionKRW = (value: number) => {
     const millions = value / 1_000_000
     return `${millions.toLocaleString('ko-KR', { maximumFractionDigits: 0 })}백만원`
   }
-
-  // Calculate strategy data directly (instead of API call)
-  const STRATEGIES = {
-    whiteSpace: ['cefaclor', 'rebamipide', 'clarithromycin'],
-    erdosteine: ['erdosteine']
-  }
-
-  const wonTargets = targets?.filter(t => t.current_stage === 'WON') || []
-  const allTargets = targets || []
-
-  const strategyData = {
-    whiteSpace: { targetRevenue: 0, achievedRevenue: 0, count: 0, wonCount: 0 },
-    erdosteine: { targetRevenue: 0, achievedRevenue: 0, count: 0, wonCount: 0 },
-    segmentSP: { targetRevenue: 0, achievedRevenue: 0, count: 0, wonCount: 0 }
-  }
-
-  // Calculate Target revenue (all targets) and Achieved revenue (WON only)
-  allTargets.forEach(target => {
-    const productName = (target.product_name || '').toLowerCase()
-    const segment = target.segment || ''
-    const revenue = target.our_est_revenue_krw || 0
-    const isWon = target.current_stage === 'WON'
-
-    // 1. White Space check (highest priority)
-    if (STRATEGIES.whiteSpace.includes(productName)) {
-      strategyData.whiteSpace.targetRevenue += revenue
-      strategyData.whiteSpace.count += 1
-      if (isWon) {
-        strategyData.whiteSpace.achievedRevenue += revenue
-        strategyData.whiteSpace.wonCount += 1
-      }
-    }
-    // 2. Erdosteine check (second priority)
-    else if (STRATEGIES.erdosteine.includes(productName)) {
-      strategyData.erdosteine.targetRevenue += revenue
-      strategyData.erdosteine.count += 1
-      if (isWon) {
-        strategyData.erdosteine.achievedRevenue += revenue
-        strategyData.erdosteine.wonCount += 1
-      }
-    }
-    // 3. S/P Segment check (third priority) - excluding strategy products
-    else if (segment === 'S' || segment === 'P') {
-      strategyData.segmentSP.targetRevenue += revenue
-      strategyData.segmentSP.count += 1
-      if (isWon) {
-        strategyData.segmentSP.achievedRevenue += revenue
-        strategyData.segmentSP.wonCount += 1
-      }
-    }
-  })
 
   return (
     <div className="p-8">
@@ -255,15 +190,7 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      {/* Debug Info */}
-      {error && (
-        <div className="mt-8 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-          <h3 className="text-red-800 dark:text-red-300 font-semibold mb-2">⚠️ 데이터베이스 에러</h3>
-          <pre className="text-xs text-red-600 dark:text-red-400 overflow-auto">
-            {JSON.stringify(error, null, 2)}
-          </pre>
-        </div>
-      )}
+      {/* v2.14: React.cache로 에러 처리 - throw on error */}
     </div>
   )
 }

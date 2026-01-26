@@ -1,31 +1,19 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { PlusIcon, FunnelIcon, CheckIcon, XMarkIcon, ArrowDownTrayIcon, CalendarIcon, MagnifyingGlassIcon, PrinterIcon, EnvelopeIcon } from '@heroicons/react/24/outline'
-
-interface MeetingItem {
-  id: number
-  meeting_type: string
-  meeting_date: string
-  account_name: string | null
-  content: string
-  assignee_name: string | null
-  reply_text: string | null
-  is_done: boolean
-  is_record: boolean
-  created_at: string
-  updated_at: string
-}
-
-interface MeetingComment {
-  id: string
-  meeting_item_id: string
-  user_name: string
-  comment_text: string
-  created_at: string
-  updated_at: string
-}
+import { useQueryClient } from '@tanstack/react-query'
+import {
+  useMeetings,
+  useCommentCounts,
+  useUpdateMeeting,
+  useDeleteMeeting,
+  useToggleMeetingDone,
+  useSession,
+  type MeetingItem,
+  type MeetingComment,
+} from '@/hooks/useMeetings'
 
 const MEETING_TYPES = ['일간회의', '월간회의', '분기회의', '년마감회의', '외부회의']
 
@@ -38,9 +26,23 @@ const MEETING_TYPE_COLORS: Record<string, string> = {
 }
 
 export default function MeetingsPage() {
-  const [items, setItems] = useState<MeetingItem[]>([])
-  const [filteredItems, setFilteredItems] = useState<MeetingItem[]>([])
-  const [loading, setLoading] = useState(true)
+  // v2.14: React Query 훅 사용 (데이터 캐싱 및 자동 리프레시)
+  const queryClient = useQueryClient()
+  const { data: meetingsData, isLoading: loading } = useMeetings({ limit: 1000 })
+  const items = meetingsData?.data || []
+  const { data: sessionData } = useSession()
+  const updateMeeting = useUpdateMeeting()
+  const deleteMeeting = useDeleteMeeting()
+  const toggleDone = useToggleMeetingDone()
+
+  // 회의록 ID 목록 (댓글 개수 배치 조회용)
+  const meetingItemIds = useMemo(() => items.map(item => String(item.id)), [items])
+  const { data: commentCountsData = {} } = useCommentCounts(meetingItemIds)
+
+  // 다운로드 권한
+  const canDownload = sessionData?.can_download_meetings || false
+
+  // UI 상태
   const [selectedType, setSelectedType] = useState<string>('all')
   const [showCompleted, setShowCompleted] = useState(true)
   const [showRecords, setShowRecords] = useState(true) // 단순 기록 필터
@@ -50,7 +52,6 @@ export default function MeetingsPage() {
   const [showCustomDate, setShowCustomDate] = useState(false)
   const [searchKeyword, setSearchKeyword] = useState<string>('')
   const [selectedAssignee, setSelectedAssignee] = useState<string>('all')
-  const [uniqueAssignees, setUniqueAssignees] = useState<string[]>([])
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editData, setEditData] = useState<{
     meeting_type: string
@@ -67,9 +68,7 @@ export default function MeetingsPage() {
     assignee_name: '',
     reply_text: ''
   })
-  const [canDownload, setCanDownload] = useState<boolean>(false)
   const [comments, setComments] = useState<Record<number, MeetingComment[]>>({})
-  const [commentCounts, setCommentCounts] = useState<Record<number, number>>({})
   const [showComments, setShowComments] = useState<Record<number, boolean>>({})
   const [newComment, setNewComment] = useState<Record<number, string>>({})
   const [currentUserName, setCurrentUserName] = useState<string>('')
@@ -77,39 +76,26 @@ export default function MeetingsPage() {
   const [showAllPrintModal, setShowAllPrintModal] = useState<boolean>(false)
   const [sendingEmail, setSendingEmail] = useState<boolean>(false)
 
-  // 데이터 로드
+  // localStorage에서 사용자 이름 가져오기
   useEffect(() => {
-    fetchItems()
-    checkDownloadPermission()
-    // localStorage에서 사용자 이름 가져오기
     const userName = localStorage.getItem('userName') || '익명'
     setCurrentUserName(userName)
   }, [])
 
-  // 다운로드 권한 확인
-  const checkDownloadPermission = async () => {
-    try {
-      console.log('🔍 Checking download permission...')
-      const response = await fetch('/api/auth/session')
-      console.log('📡 Session API response:', response.status)
+  // v2.14: 고유 담당자 목록 (useMemo로 최적화)
+  const uniqueAssignees = useMemo(() => {
+    return items
+      .map((item: MeetingItem) => item.assignee_name)
+      .filter((name: string | null): name is string => name !== null && name.trim() !== '')
+      .filter((name: string, index: number, self: string[]) => self.indexOf(name) === index)
+      .sort()
+  }, [items])
 
-      if (response.ok) {
-        const data = await response.json()
-        console.log('📊 Session data:', data)
-        console.log('✅ Can download meetings:', data.can_download_meetings)
-        setCanDownload(data.can_download_meetings || false)
-      } else {
-        console.error('❌ Session check failed:', response.status)
-        setCanDownload(false)
-      }
-    } catch (error) {
-      console.error('❌ Failed to check download permission:', error)
-      setCanDownload(false)
-    }
-  }
+  // v2.14: 댓글 개수 (React Query에서 가져온 데이터 사용)
+  const commentCounts = commentCountsData
 
-  // 필터링
-  useEffect(() => {
+  // v2.14: 필터링 로직 (useMemo로 최적화)
+  const filteredItems = useMemo(() => {
     let filtered = items
 
     // 회의 타입 필터
@@ -200,61 +186,11 @@ export default function MeetingsPage() {
       return 0
     })
 
-    setFilteredItems(filtered)
+    return filtered
   }, [items, selectedType, showCompleted, showRecords, dateFilter, customStartDate, customEndDate, searchKeyword, selectedAssignee])
 
-  const fetchItems = async () => {
-    try {
-      setLoading(true)
-      const response = await fetch('/api/meetings')
-      const data = await response.json()
-      setItems(data.data || [])
-
-      // 고유 담당자 목록 추출
-      const assignees = data.data
-        .map((item: MeetingItem) => item.assignee_name)
-        .filter((name: string | null) => name && name.trim())
-        .filter((name: string, index: number, self: string[]) => self.indexOf(name) === index)
-        .sort()
-
-      setUniqueAssignees(assignees)
-
-      // 모든 항목의 댓글 개수 가져오기
-      if (data.data && data.data.length > 0) {
-        await fetchAllCommentCounts(data.data)
-      }
-    } catch (error) {
-      console.error('Failed to fetch meeting items:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  // 모든 항목의 댓글 개수 가져오기
-  const fetchAllCommentCounts = async (items: MeetingItem[]) => {
-    try {
-      const counts: Record<number, number> = {}
-
-      await Promise.all(
-        items.map(async (item) => {
-          try {
-            const response = await fetch(`/api/meetings/comments?meeting_item_id=${item.id}&count_only=true`)
-            if (response.ok) {
-              const data = await response.json()
-              counts[item.id] = data.count || 0
-            }
-          } catch (error) {
-            console.error(`Failed to fetch comment count for item ${item.id}:`, error)
-            counts[item.id] = 0
-          }
-        })
-      )
-
-      setCommentCounts(counts)
-    } catch (error) {
-      console.error('Failed to fetch comment counts:', error)
-    }
-  }
+  // v2.14: 더 이상 fetchItems, fetchAllCommentCounts 필요 없음
+  // React Query가 데이터 로딩, 캐싱, 리프레시를 자동으로 처리
 
   const handleEdit = (item: MeetingItem) => {
     setEditingId(item.id)
@@ -268,40 +204,24 @@ export default function MeetingsPage() {
     })
   }
 
-  const handleSave = async (id: number) => {
-    try {
-      const response = await fetch(`/api/meetings/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editData)
-      })
-
-      if (response.ok) {
-        await fetchItems()
-        setEditingId(null)
-      } else {
-        alert('저장에 실패했습니다')
+  // v2.14: React Query mutation 사용 (낙관적 업데이트 적용)
+  const handleSave = (id: number) => {
+    updateMeeting.mutate(
+      { id, data: editData },
+      {
+        onSuccess: () => {
+          setEditingId(null)
+        },
+        onError: () => {
+          alert('저장에 실패했습니다')
+        }
       }
-    } catch (error) {
-      console.error('Failed to save:', error)
-      alert('저장 중 오류가 발생했습니다')
-    }
+    )
   }
 
-  const handleToggleDone = async (item: MeetingItem) => {
-    try {
-      const response = await fetch(`/api/meetings/${item.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ is_done: !item.is_done })
-      })
-
-      if (response.ok) {
-        await fetchItems()
-      }
-    } catch (error) {
-      console.error('Failed to toggle done:', error)
-    }
+  // v2.14: React Query mutation 사용 (낙관적 업데이트로 즉시 UI 반영)
+  const handleToggleDone = (item: MeetingItem) => {
+    toggleDone.mutate({ id: item.id, is_done: !item.is_done })
   }
 
   // 댓글 로드
@@ -358,8 +278,8 @@ export default function MeetingsPage() {
         setShowComments(prev => ({ ...prev, [meetingItemId]: true }))
         // 댓글 목록 새로고침
         await fetchComments(meetingItemId)
-        // 댓글 개수 업데이트 (+1)
-        setCommentCounts(prev => ({ ...prev, [meetingItemId]: (prev[meetingItemId] || 0) + 1 }))
+        // v2.14: 댓글 개수 쿼리 무효화 (React Query가 자동으로 리프레시)
+        queryClient.invalidateQueries({ queryKey: ['commentCounts'] })
       } else {
         console.error('Failed to create comment:', result)
         alert(`댓글 작성에 실패했습니다: ${result.details || result.error || '알 수 없는 오류'}`)
@@ -382,8 +302,8 @@ export default function MeetingsPage() {
       if (response.ok) {
         // 댓글 목록 새로고침
         await fetchComments(meetingItemId)
-        // 댓글 개수 업데이트 (-1)
-        setCommentCounts(prev => ({ ...prev, [meetingItemId]: Math.max(0, (prev[meetingItemId] || 0) - 1) }))
+        // v2.14: 댓글 개수 쿼리 무효화 (React Query가 자동으로 리프레시)
+        queryClient.invalidateQueries({ queryKey: ['commentCounts'] })
       } else {
         alert('댓글 삭제에 실패했습니다')
       }
@@ -393,23 +313,15 @@ export default function MeetingsPage() {
     }
   }
 
-  const handleDelete = async (id: number) => {
+  // v2.14: React Query mutation 사용 (낙관적 삭제로 즉시 UI 반영)
+  const handleDelete = (id: number) => {
     if (!confirm('정말 삭제하시겠습니까?')) return
 
-    try {
-      const response = await fetch(`/api/meetings/${id}`, {
-        method: 'DELETE'
-      })
-
-      if (response.ok) {
-        await fetchItems()
-      } else {
+    deleteMeeting.mutate(id, {
+      onError: () => {
         alert('삭제에 실패했습니다')
       }
-    } catch (error) {
-      console.error('Failed to delete:', error)
-      alert('삭제 중 오류가 발생했습니다')
-    }
+    })
   }
 
   // 검색어 하이라이트 함수

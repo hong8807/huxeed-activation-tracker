@@ -117,40 +117,65 @@ export async function GET() {
       }
     })
 
-    // Get unique supplier counts for each unique product with DMF and linkage status
-    const sourcingSupplierStatus = await Promise.all(
-      Array.from(productMap.values()).map(async (target) => {
-        // Get suppliers with full information (case-insensitive match)
-        const { data: suppliers } = await supabase
-          .from('suppliers')
-          .select('supplier_name, dmf_registered, linkage_status')
-          .ilike('product_name', target.product_name || '')
+    // v2.14: 배치 쿼리로 최적화 - N+1 쿼리 문제 해결
+    // 기존: 각 품목마다 개별 쿼리 (N번의 DB 호출)
+    // 개선: 모든 제조원 데이터를 한 번에 조회 후 JavaScript에서 그룹핑
 
-        // Deduplicate by supplier_name (keep first occurrence)
-        const supplierMap = new Map<string, { dmf_registered: boolean; linkage_status: string }>()
-        suppliers?.forEach(s => {
-          if (!supplierMap.has(s.supplier_name)) {
-            supplierMap.set(s.supplier_name, {
-              dmf_registered: s.dmf_registered || false,
-              linkage_status: s.linkage_status || 'PREPARING',
-            })
-          }
+    // 1. 단일 배치 쿼리로 모든 제조원 데이터 조회
+    const { data: allSuppliers } = await supabase
+      .from('suppliers')
+      .select('product_name, supplier_name, dmf_registered, linkage_status')
+
+    // 3. 정규화된 품목명으로 제조원 그룹핑
+    const suppliersByProduct = new Map<string, Array<{
+      supplier_name: string
+      dmf_registered: boolean
+      linkage_status: string
+    }>>()
+
+    allSuppliers?.forEach(supplier => {
+      const normalizedName = normalizeProductName(supplier.product_name)
+      // productMap에 있는 품목만 처리
+      if (productMap.has(normalizedName)) {
+        if (!suppliersByProduct.has(normalizedName)) {
+          suppliersByProduct.set(normalizedName, [])
+        }
+        suppliersByProduct.get(normalizedName)!.push({
+          supplier_name: supplier.supplier_name,
+          dmf_registered: supplier.dmf_registered || false,
+          linkage_status: supplier.linkage_status || 'PREPARING',
         })
+      }
+    })
 
-        // Calculate DMF and linkage status
-        const totalSuppliers = supplierMap.size
-        const dmfRegisteredCount = Array.from(supplierMap.values()).filter(s => s.dmf_registered).length
-        const linkageCompletedCount = Array.from(supplierMap.values()).filter(s => s.linkage_status === 'COMPLETED').length
+    // 4. 각 품목별 제조원 상태 계산 (동기 처리로 변경)
+    const sourcingSupplierStatus = Array.from(productMap.entries()).map(([normalizedName, target]) => {
+      const suppliers = suppliersByProduct.get(normalizedName) || []
 
-        return {
-          id: target.id,
-          productName: target.product_name || 'Unknown',
-          supplierCount: totalSuppliers,
-          dmfStatus: totalSuppliers > 0 ? `${dmfRegisteredCount}/${totalSuppliers}` : '-',
-          linkageStatus: totalSuppliers > 0 ? `${linkageCompletedCount}/${totalSuppliers}` : '-',
+      // Deduplicate by supplier_name (keep first occurrence)
+      const supplierMap = new Map<string, { dmf_registered: boolean; linkage_status: string }>()
+      suppliers.forEach(s => {
+        if (!supplierMap.has(s.supplier_name)) {
+          supplierMap.set(s.supplier_name, {
+            dmf_registered: s.dmf_registered,
+            linkage_status: s.linkage_status,
+          })
         }
       })
-    )
+
+      // Calculate DMF and linkage status
+      const totalSuppliers = supplierMap.size
+      const dmfRegisteredCount = Array.from(supplierMap.values()).filter(s => s.dmf_registered).length
+      const linkageCompletedCount = Array.from(supplierMap.values()).filter(s => s.linkage_status === 'COMPLETED').length
+
+      return {
+        id: target.id,
+        productName: target.product_name || 'Unknown',
+        supplierCount: totalSuppliers,
+        dmfStatus: totalSuppliers > 0 ? `${dmfRegisteredCount}/${totalSuppliers}` : '-',
+        linkageStatus: totalSuppliers > 0 ? `${linkageCompletedCount}/${totalSuppliers}` : '-',
+      }
+    })
 
     // Sort by supplier count (ascending - show items with 0 suppliers first)
     const sortedSourcingStatus = sourcingSupplierStatus.sort((a, b) => a.supplierCount - b.supplierCount)
