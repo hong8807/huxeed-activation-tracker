@@ -56,34 +56,52 @@ export async function POST(request: NextRequest) {
 
     console.log(`📦 ${product_name} 품목에 대해 ${targets.length}개의 카드 발견`)
 
-    // 각 target에 대해 제조원 정보 삽입
-    const supplierInserts = targets.map(target => ({
-      target_id: target.id,
-      product_name: target.product_name, // ✨ product_name 추가
-      supplier_name,
-      currency,
-      unit_price_foreign,
-      fx_rate,
-      unit_price_krw,
-      dmf_registered: dmf_registered || false,
-      linkage_status: linkage_status || 'PREPARING',
-      note: note || null,
-    }))
-
-    const { data: insertedSuppliers, error: insertError } = await supabase
+    // v2.13: 동일 품목+제조원 조합이 이미 존재하는지 확인 (중복 방지)
+    const { data: existingSupplier } = await supabase
       .from('suppliers')
-      .insert(supplierInserts)
-      .select()
+      .select('id')
+      .eq('product_name', product_name)
+      .eq('supplier_name', supplier_name)
+      .limit(1)
+      .single()
 
-    if (insertError) {
-      console.error('Error inserting suppliers:', insertError)
-      return NextResponse.json(
-        { error: 'Failed to create suppliers' },
-        { status: 500 }
-      )
+    let insertedSuppliers = []
+
+    if (existingSupplier) {
+      // 이미 존재하면 insert 하지 않음
+      console.log(`⚠️ ${supplier_name} 제조원은 이미 ${product_name} 품목에 등록되어 있습니다.`)
+    } else {
+      // 품목 기준으로 제조원 1건만 등록 (첫 번째 target_id 사용)
+      const supplierInsert = {
+        target_id: targets[0].id,
+        product_name: product_name, // 품목명 기준 관리
+        supplier_name,
+        currency,
+        unit_price_foreign,
+        fx_rate,
+        unit_price_krw,
+        dmf_registered: dmf_registered || false,
+        linkage_status: linkage_status || 'PREPARING',
+        note: note || null,
+      }
+
+      const { data: inserted, error: insertError } = await supabase
+        .from('suppliers')
+        .insert(supplierInsert)
+        .select()
+
+      if (insertError) {
+        console.error('Error inserting supplier:', insertError)
+        return NextResponse.json(
+          { error: 'Failed to create supplier' },
+          { status: 500 }
+        )
+      }
+
+      insertedSuppliers = inserted || []
+      console.log(`✅ 제조원 정보 등록 완료: ${supplier_name}`)
     }
 
-    console.log(`✅ ${insertedSuppliers.length}개 제조원 정보 등록 완료`)
 
     // 모든 targets를 SOURCING_COMPLETED로 변경
     const targetIds = targets.map(t => t.id)
@@ -127,6 +145,7 @@ export async function POST(request: NextRequest) {
       message: 'Success',
       affected_targets: targets.length,
       suppliers_created: insertedSuppliers.length,
+      already_existed: existingSupplier ? true : false,
     }, { status: 201 })
   } catch (error) {
     console.error('Error in POST /api/suppliers:', error)
