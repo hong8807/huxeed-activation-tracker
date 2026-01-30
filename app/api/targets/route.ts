@@ -1,9 +1,12 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
+import { normalizeProductName } from '@/utils/format'
 
 /**
  * POST /api/targets
  * 시스템 내 신규 품목 등록
+ *
+ * v2.13: 동일 품목명에 기존 제조원 정보가 있으면 자동으로 SOURCING_COMPLETED 단계로 생성
  */
 export async function POST(request: NextRequest) {
   try {
@@ -33,6 +36,26 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
+
+    // v2.13: 동일 품목명으로 기존 제조원 정보 존재 여부 확인
+    const normalizedProductName = normalizeProductName(product_name)
+    const { data: allSuppliers } = await supabase
+      .from('suppliers')
+      .select('id, product_name')
+
+    // 정규화된 품목명으로 매칭되는 제조원 찾기
+    const existingSuppliers = allSuppliers?.filter(
+      supplier => normalizeProductName(supplier.product_name) === normalizedProductName
+    ) || []
+
+    const hasExistingSuppliers = existingSuppliers.length > 0
+
+    // 제조원 정보 있으면 SOURCING_COMPLETED, 없으면 MARKET_RESEARCH
+    const initialStage = hasExistingSuppliers ? 'SOURCING_COMPLETED' : 'MARKET_RESEARCH'
+    const stageProgressRate = hasExistingSuppliers ? 10 : 0
+    const stageComment = hasExistingSuppliers
+      ? `신규 품목 등록 (기존 제조원 정보 ${existingSuppliers.length}건 발견)`
+      : '신규 품목 등록'
 
     // v2.11: 현재 매입가 정보 유무 확인
     const hasCurrentPrice = !!(curr_currency && curr_unit_price_foreign && curr_fx_rate_input)
@@ -87,8 +110,8 @@ export async function POST(request: NextRequest) {
         saving_per_kg,
         total_saving_krw,
         saving_rate,
-        current_stage: 'MARKET_RESEARCH',  // 초기 단계
-        stage_progress_rate: 0,
+        current_stage: initialStage,  // v2.13: 제조원 있으면 SOURCING_COMPLETED
+        stage_progress_rate: stageProgressRate,
         stage_updated_at: new Date().toISOString(),
         note: note || null,
       })
@@ -108,13 +131,18 @@ export async function POST(request: NextRequest) {
       .from('stage_history')
       .insert({
         target_id: data.id,
-        stage: 'MARKET_RESEARCH',
+        stage: initialStage,
         changed_at: new Date().toISOString(),
         actor_name: owner_name || 'System',
-        comment: '신규 품목 등록',
+        comment: stageComment,
       })
 
-    return NextResponse.json(data, { status: 201 })
+    // v2.13: 응답에 기존 제조원 정보 포함
+    return NextResponse.json({
+      ...data,
+      existingSupplierCount: existingSuppliers.length,
+      autoAdvancedToSourcingCompleted: hasExistingSuppliers,
+    }, { status: 201 })
   } catch (error) {
     console.error('Error in POST /api/targets:', error)
     return NextResponse.json(

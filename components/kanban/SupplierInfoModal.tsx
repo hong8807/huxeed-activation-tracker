@@ -44,12 +44,20 @@ export default function SupplierInfoModal({ target, onClose }: SupplierInfoModal
 
   useEffect(() => {
     fetchSuppliers()
-  }, [target.id])
+  }, [target.product_name])
 
+  // v2.13: product_name 기준으로 제조원 조회 (다른 거래처에 등록된 제조원도 표시)
   const fetchSuppliers = async () => {
     setIsLoading(true)
     try {
-      const response = await fetch(`/api/suppliers?targetId=${target.id}`)
+      // product_name이 없으면 빈 배열 반환
+      if (!target.product_name) {
+        setSuppliers([])
+        return
+      }
+
+      // product_name으로 조회하여 동일 품목의 모든 제조원 정보 표시
+      const response = await fetch(`/api/suppliers/by-product?productName=${encodeURIComponent(target.product_name)}`)
       if (!response.ok) throw new Error('Failed to fetch suppliers')
 
       const data = await response.json()
