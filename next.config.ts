@@ -28,7 +28,7 @@ const nextConfig: NextConfig = {
     },
 
     // 정적 페이지 최적화
-    optimizePackageImports: ['@supabase/supabase-js', 'exceljs', 'nodemailer'],
+    optimizePackageImports: ['@supabase/supabase-js', 'exceljs', 'nodemailer', 'pptxgenjs'],
   },
 
   // 헤더 설정 (캐싱)

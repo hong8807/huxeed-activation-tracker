@@ -1,6 +1,7 @@
 import { Metadata } from 'next'
 import { Suspense } from 'react'
 import VisualizationReport from '@/components/report/VisualizationReport'
+import ReportDownloadButton from '@/components/report/ReportDownloadButton'
 
 // v2.14: 리포트 컴포넌트 로딩 스피너
 function ReportLoadingSpinner() {
@@ -25,6 +26,13 @@ export const metadata: Metadata = {
 export default function ReportPage() {
   return (
     <div className="min-h-screen bg-gray-50">
+      <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-bold text-gray-900">전략 품목 진행 현황 리포트</h1>
+          <p className="text-sm text-gray-500 mt-0.5">HUXEED 신규품목 활성화 진행 현황</p>
+        </div>
+        <ReportDownloadButton />
+      </div>
       <Suspense fallback={<ReportLoadingSpinner />}>
         <VisualizationReport />
       </Suspense>
